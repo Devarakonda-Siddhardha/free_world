@@ -147,9 +147,10 @@
 
     const camera = new THREE.PerspectiveCamera(52, container.clientWidth / container.clientHeight, 0.1, 1000);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const browserModelEnabled = new URLSearchParams(location.search).get("eko") === "llm";
+    const renderer = new THREE.WebGLRenderer({ antialias: !browserModelEnabled });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, browserModelEnabled ? 1 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -2330,7 +2331,6 @@
     // ==============================================================
     // --- 20HZ SIMULATION TICKER & TERRAIN-AWARE KINEMATICS ---
     // ==============================================================
-    const browserModelEnabled = new URLSearchParams(location.search).get("eko") === "llm";
     if (browserModelEnabled) {
       const modeLink = document.getElementById("eko-mode-link");
       modeLink.href = location.pathname;
@@ -2344,7 +2344,8 @@
     async function loadEkoModel(goalLabel) {
       if (!navigator.gpu) throw new Error("WebGPU is unavailable on this device.");
       const { pipeline } = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2");
-      return pipeline("text-generation", "onnx-community/LFM3-1.7B-ONNX", {
+      return pipeline("text-generation", "daveycodez/LFM3-1.7B-Web-ONNX", {
+        revision: "9cda8fa27706d239b9c58f53a867d398e313b961",
         dtype: "q4f16",
         device: "webgpu",
         progress_callback: progress => {
@@ -2400,7 +2401,9 @@
       } catch (error) {
         if (!controller.signal.aborted) {
           goalLabel.innerText = ekoGenerator ? "Liquid AI decision failed. Retrying."
-            : "Liquid AI could not load. WebGPU and a model download are required.";
+            : error instanceof RangeError ? "Liquid AI ran out of browser memory."
+            : navigator.gpu ? "Liquid AI could not load. Reload to retry."
+            : "Liquid AI requires WebGPU.";
           console.warn("Eko browser model:", error);
         }
       } finally {
