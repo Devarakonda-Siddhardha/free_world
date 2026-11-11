@@ -12,382 +12,123 @@
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: #0f172a;
-      overflow: hidden;
-      height: 100vh;
-      width: 100vw;
-    }
-    header {
-      background: rgba(15, 23, 42, 0.92);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 20;
-      backdrop-filter: blur(10px);
-    }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .brand-title {
-      font-weight: 800;
-      font-size: 14px;
-      letter-spacing: 0.5px;
-      background: linear-gradient(135deg, #4ade80, #38bdf8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .badge {
-      background: rgba(34, 197, 94, 0.15);
-      border: 1px solid rgba(34, 197, 94, 0.4);
-      color: #4ade80;
-      font-size: 10px;
-      padding: 2px 7px;
-      border-radius: 10px;
-      font-weight: 600;
-    }
-    .main-container { position: fixed; inset: 0; }
-    #canvas-container { width: 100%; height: 100%; }
-
-    /* Floating View Mode Selector */
-    .view-selector {
-      position: absolute;
-      top: 14px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 15;
-      display: flex;
-      background: rgba(15, 23, 42, 0.88);
-      border: 1px solid var(--border);
-      border-radius: 30px;
-      padding: 4px;
-      gap: 4px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      backdrop-filter: blur(10px);
-    }
-    .view-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      padding: 6px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      border-radius: 20px;
-      cursor: pointer;
-      transition: all 0.2s;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .view-btn.active {
-      background: var(--accent-cyan);
-      color: #000;
-      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
-    }
-
-    /* Floating Live Action Pill */
-    .agent-status-pill {
-      position: absolute;
-      top: 58px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 15;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      border-radius: 20px;
-      padding: 4px 14px;
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #fff;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-      pointer-events: none;
-    }
-
-    /* Floating Live Thought Banner */
-    .thought-banner {
-      position: absolute;
-      top: 96px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 15;
-      background: rgba(15, 23, 42, 0.92);
-      border: 1px solid rgba(251, 191, 36, 0.55);
-      border-radius: 20px;
-      padding: 5px 16px;
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #f8fafc;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.55);
-      max-width: 90vw;
-      text-align: center;
-      backdrop-filter: blur(10px);
-      pointer-events: none;
-      transition: all 0.3s ease;
-    }
-    .thought-icon { font-size: 13px; }
-    .thought-label { color: var(--accent-gold); font-weight: 700; white-space: nowrap; }
-    .thought-content { color: #f1f5f9; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 480px; }
-
-    /* Desktop Panels */
-    .hud-panel {
-      position: absolute;
-      top: 15px;
-      bottom: 65px;
-      width: 320px;
-      background: var(--panel-bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      backdrop-filter: blur(12px);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .hud-left { left: 15px; }
-    .hud-right { right: 15px; width: 360px; }
-    .panel-header {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--accent-cyan);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(255,255,255,0.02);
-    }
-    .panel-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px;
-      font-size: 11px;
-      line-height: 1.5;
-    }
-    .panel-body::-webkit-scrollbar { width: 4px; }
-    .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-    .tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-    }
-    .tab-btn {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      padding: 8px 6px;
-      font-size: 10px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .tab-btn.active {
-      color: var(--accent-cyan);
-      border-bottom: 2px solid var(--accent-cyan);
-      background: rgba(56, 189, 248, 0.08);
-    }
-    .transcript-entry {
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .transcript-role {
-      font-size: 10px;
-      text-transform: uppercase;
-      font-weight: 800;
-      color: var(--accent-gold);
-      margin-bottom: 2px;
-    }
-    .transcript-text {
-      color: var(--text);
-      font-size: 11px;
-    }
-    pre {
-      font-family: monospace;
-      font-size: 11px;
-      white-space: pre-wrap;
-      color: #cbd5e1;
-    }
-
-    /* Mobile Drawer Toggle */
-    .mobile-drawer-toggle {
-      display: none;
-      position: absolute;
-      bottom: 64px;
-      right: 15px;
-      z-index: 25;
-      background: var(--panel-bg);
-      border: 1px solid var(--border);
-      color: var(--accent-cyan);
-      border-radius: 20px;
-      padding: 8px 16px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
-    }
-
-    /* Bottom Control Bar */
-    .bottom-bar {
-      height: 54px;
-      background: rgba(10, 14, 20, 0.96);
-      border-top: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 14px;
-      gap: 10px;
-      z-index: 20;
-      backdrop-filter: blur(10px);
-      overflow-x: auto;
-      white-space: nowrap;
-    }
-    .bottom-bar::-webkit-scrollbar { display: none; }
-    .btn {
-      background: rgba(56, 189, 248, 0.15);
-      border: 1px solid var(--accent-cyan);
-      color: var(--accent-cyan);
-      border-radius: 20px;
-      padding: 7px 14px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      flex-shrink: 0;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .btn:hover {
-      background: var(--accent-cyan);
-      color: #000;
-    }
-    .btn-gold {
-      border-color: var(--accent-gold);
-      color: var(--accent-gold);
-      background: rgba(251, 191, 36, 0.15);
-    }
-    .btn-gold:hover {
-      background: var(--accent-gold);
-      color: #000;
-    }
-    .btn-green {
-      border-color: var(--accent-green);
-      color: var(--accent-green);
-      background: rgba(52, 211, 153, 0.15);
-    }
-    .btn-green:hover {
-      background: var(--accent-green);
-      color: #000;
-    }
-    .btn-secondary {
-      border-color: rgba(255,255,255,0.2);
-      color: var(--text-dim);
-      background: rgba(255,255,255,0.06);
-    }
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #10b981;
-      display: inline-block;
-      box-shadow: 0 0 6px #10b981;
-    }
-
-    /* ===== CINEMA MODE â€” HUD hidden by default ===== */
-    body.cinema header          { transform: translateY(-100%); transition: transform 0.3s ease; }
-    body.cinema .bottom-bar     { transform: translateY(100%);  transition: transform 0.3s ease; }
-    body.cinema .hud-panel      { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-    body.cinema .view-selector  { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-    body.cinema .agent-status-pill { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-    body.cinema .thought-banner { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
-    /* smooth show when NOT in cinema */
-    header, .bottom-bar, .hud-panel, .view-selector, .agent-status-pill, .thought-banner {
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    }
-
-    /* Tiny floating HUD toggle always visible */
-    #hud-toggle {
-      position: fixed;
-      bottom: 14px;
-      right: 14px;
-      z-index: 999;
-      background: rgba(15,23,42,0.75);
-      border: 1px solid rgba(56,189,248,0.4);
-      color: #38bdf8;
-      border-radius: 50%;
-      width: 36px;
-      height: 36px;
-      font-size: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
-      transition: background 0.2s;
-    }
-    #hud-toggle:hover { background: rgba(56,189,248,0.25); }
-
-    /* Mobile Responsive Layout */
-    @media (max-width: 860px) {
-      .hud-left { display: none; }
-      .mobile-drawer-toggle { display: block; }
-      .hud-right {
-        left: 10px;
-        right: 10px;
-        width: calc(100vw - 20px);
-        bottom: 60px;
-        top: auto;
-        height: 280px;
-        transform: translateY(320px);
-        z-index: 30;
-      }
-      .hud-right.open {
-        transform: translateY(0);
-      }
-      .view-selector { top: 8px; }
-      .agent-status-pill { top: 46px; font-size: 10px; padding: 3px 10px; }
-      .thought-banner { top: 78px; font-size: 10px; padding: 4px 10px; }
-      .thought-content { max-width: 220px; }
-      .brand-title { font-size: 12px; }
-      .header-stats { display: none; }
-    }
-  </style>
+    body { background: #0f172a; overflow: hidden; height: 100vh; width: 100vw; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #f8fafc; }
+    #canvas-container { position: fixed; inset: 0; }
+</style>
 </head>
 <body>
+  <!-- Full-screen 3D canvas -->
+  <div id="canvas-container"></div>
 
-  <div class="main-container">
-    <div id="canvas-container"></div>
-      <div class="panel-body" id="transcript-container">
-        <div class="transcript-entry">
-          <div class="transcript-role">System Initialization</div>
-          <div class="transcript-text">Welcome to Terra Haven expanded sanctuary. 320m world, southern ocean, river delta, campfire warmth, hunger and procedural wildlife active.</div>
-        </div>
-      </div>
-    </div>
-      </div>
-      <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('semantic')">SEMANTIC</button>
-        <button class="tab-btn" onclick="switchTab('episodic')">EPISODIC <span id="episodic-count-badge" style="color: var(--accent-cyan); font-size: 9px;"></span></button>
-        <button class="tab-btn" onclick="switchTab('soul')">SOUL</button>
-        <button class="tab-btn" onclick="switchTab('api')">API</button>
-      </div>
-      <div class="panel-body">
-        <pre id="memory-text"></pre>
-      </div>
-    </div>
+  <!-- Hidden elements JS still needs to write to -->
+  <div id="transcript-container" style="display:none"></div>
+  <pre id="memory-text" style="display:none"></pre>
+  <span id="episodic-count-badge" style="display:none"></span>
+  <span id="action-badge" style="display:none"></span>
+
+  <!-- Floating thought bubble (top center) -->
+  <div id="thought-banner" style="
+    position:fixed; top:12px; left:50%; transform:translateX(-50%);
+    background:rgba(10,14,22,0.72); border:1px solid rgba(251,191,36,0.4);
+    border-radius:20px; padding:5px 16px; font-size:12px; color:#f1f5f9;
+    display:flex; align-items:center; gap:7px; max-width:70vw;
+    backdrop-filter:blur(10px); pointer-events:none; z-index:50;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  ">
+    <span style="font-size:14px">💭</span>
+    <span id="thought-banner-text" style="font-style:italic; overflow:hidden; text-overflow:ellipsis;">Eko waking up...</span>
   </div>
-    <button class="btn btn-secondary" id="play-btn" onclick="togglePlay()">â¸ï¸ Pause</button>
+
+  <!-- Vitals pill (top right) -->
+  <div id="vitals-pill" style="
+    position:fixed; top:12px; right:14px;
+    background:rgba(10,14,22,0.72); border:1px solid rgba(255,255,255,0.12);
+    border-radius:20px; padding:5px 12px; font-size:11px; color:#f1f5f9;
+    display:flex; align-items:center; gap:10px;
+    backdrop-filter:blur(10px); z-index:50; pointer-events:none;
+  ">
+    <span>❤️ <strong id="health-text" style="color:#10b981">100%</strong></span>
+    <span>🫐 <strong id="hunger-text" style="color:#f87171">85%</strong></span>
+    <span>⚡ <strong id="energy-text" style="color:#34d399">95%</strong></span>
+    <span id="warmth-pill" style="display:none; color:#f97316">🔥</span>
+    <span id="hazard-pill" style="display:none; color:#ef4444">⚠️</span>
   </div>
+
+  <!-- Goal pill (top left) -->
+  <div style="
+    position:fixed; top:12px; left:14px;
+    background:rgba(10,14,22,0.72); border:1px solid rgba(56,189,248,0.3);
+    border-radius:20px; padding:5px 12px; font-size:11px; color:#f1f5f9;
+    display:flex; align-items:center; gap:7px;
+    backdrop-filter:blur(10px); z-index:50; pointer-events:none;
+  ">
+    <span style="width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981;display:inline-block"></span>
+    <span id="goal-pill-text" style="color:#38bdf8; font-weight:700">Surveying Meadow</span>
+    <span style="color:rgba(255,255,255,0.3)">|</span>
+    <span id="action-state-text" style="color:#fbbf24">Idle</span>
+  </div>
+
+  <!-- Action buttons (bottom, icon + short label, hidden by default, press Space) -->
+  <div id="action-bar" style="
+    position:fixed; bottom:0; left:0; right:0;
+    background:rgba(10,14,22,0.82); border-top:1px solid rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:8px 12px; z-index:50; backdrop-filter:blur(10px);
+    transform:translateY(100%); transition:transform 0.3s ease;
+    flex-wrap:wrap;
+  ">
+    <button onclick="triggerForageAndEat()" title="Forage &amp; Eat" style="background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🫐 Forage</button>
+    <button onclick="triggerRestByFire()" title="Rest by Campfire" style="background:rgba(251,191,36,0.15);border:1px solid #fbbf24;color:#fbbf24;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🔥 Rest</button>
+    <button onclick="triggerExploreOcean()" title="Walk to Ocean" style="background:rgba(56,189,248,0.15);border:1px solid #38bdf8;color:#38bdf8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🏖️ Ocean</button>
+    <button onclick="triggerSwimJumpTest()" title="Jump in Lake" style="background:rgba(56,189,248,0.15);border:1px solid #38bdf8;color:#38bdf8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🌊 Lake</button>
+    <button onclick="triggerFireStepTest()" title="Step in Fire" style="background:rgba(249,115,22,0.15);border:1px solid #f97316;color:#fb923c;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🔥 Fire</button>
+    <button onclick="triggerSkipStone()" title="Skip Stone" style="background:rgba(34,197,94,0.15);border:1px solid #22c55e;color:#22c55e;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🌊 Skip</button>
+    <button onclick="triggerShatterTest()" title="Shatter Geode" style="background:rgba(251,191,36,0.15);border:1px solid #fbbf24;color:#fbbf24;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">💥 Geode</button>
+    <button onclick="triggerWalkToPier()" title="Walk to Pier" style="background:rgba(56,189,248,0.15);border:1px solid #38bdf8;color:#38bdf8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🚶 Pier</button>
+    <button onclick="triggerClimbPeak()" title="Climb Peak" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🧗 Peak</button>
+    <button onclick="triggerTowerBuild()" title="Stack Crates" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🪵 Stack</button>
+    <button onclick="resetWorld()" title="Reset World" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🔄 Reset</button>
+    <button onclick="togglePlay()" id="play-btn" title="Pause/Play" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">⏸️</button>
+  </div>
+
+  <!-- Camera selector (hidden by default, press Space to show alongside action bar) -->
+  <div id="cam-bar" style="
+    position:fixed; bottom:52px; left:50%; transform:translate(-50%, 100%);
+    background:rgba(10,14,22,0.82); border:1px solid rgba(255,255,255,0.08);
+    border-radius:20px; display:flex; gap:4px; padding:4px 8px; z-index:50;
+    backdrop-filter:blur(10px); transition:transform 0.3s ease;
+  ">
+    <button class="cb active" id="cam-agent-btn" onclick="setCamera('agent')" style="background:rgba(56,189,248,0.2);border:none;color:#38bdf8;border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:700">🎯 Eko</button>
+    <button class="cb" id="cam-lake-btn" onclick="setCamera('lake')" style="background:transparent;border:none;color:#94a3b8;border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer">🌊 Lake</button>
+    <button class="cb" id="cam-ocean-btn" onclick="setCamera('ocean')" style="background:transparent;border:none;color:#94a3b8;border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer">🏖️ Ocean</button>
+    <button class="cb" id="cam-peak-btn" onclick="setCamera('peak')" style="background:transparent;border:none;color:#94a3b8;border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer">🧗 Peak</button>
+    <button class="cb" id="cam-wildlife-btn" onclick="setCamera('wildlife')" style="background:transparent;border:none;color:#94a3b8;border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer">🦌 Wild</button>
+    <button class="cb" id="cam-overview-btn" onclick="setCamera('overview')" style="background:transparent;border:none;color:#94a3b8;border-radius:14px;padding:4px 10px;font-size:11px;cursor:pointer">🌲 All</button>
+  </div>
+
+  <!-- Space bar hint -->
+  <div id="space-hint" style="
+    position:fixed; bottom:10px; left:50%; transform:translateX(-50%);
+    color:rgba(255,255,255,0.25); font-size:11px; z-index:50; pointer-events:none;
+    transition:opacity 0.5s;
+  ">press Space for controls</div>
 
   <script>
+    // Space bar toggles action bar + cam bar
+    let barsVisible = false;
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space' && e.target === document.body) {
+        e.preventDefault();
+        barsVisible = !barsVisible;
+        document.getElementById('action-bar').style.transform = barsVisible ? 'translateY(0)' : 'translateY(100%)';
+        document.getElementById('cam-bar').style.transform = barsVisible ? 'translate(-50%, 0)' : 'translate(-50%, 100%)';
+        document.getElementById('space-hint').style.opacity = barsVisible ? '0' : '1';
+      }
+    });
+    // Also hide hint after 4s
+    setTimeout(() => { const h = document.getElementById('space-hint'); if(h) h.style.opacity = '0'; }, 4000);
+  </script>
+<script>
     // --- THREE.JS SCENE SETUP (TERRA HAVEN LAKESIDE SANCTUARY) ---
     const container = document.getElementById("canvas-container");
     const scene = new THREE.Scene();
