@@ -2343,16 +2343,40 @@
 
     async function loadEkoModel(goalLabel) {
       if (!navigator.gpu) throw new Error("WebGPU is unavailable on this device.");
-      const { pipeline } = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2");
-      return pipeline("text-generation", "daveycodez/LFM3-1.7B-Web-ONNX", {
-        revision: "9cda8fa27706d239b9c58f53a867d398e313b961",
-        dtype: "q4f16",
-        device: "webgpu",
-        progress_callback: progress => {
-          if (progress.status === "progress" && progress.file?.includes(".onnx_data")) {
-            goalLabel.innerText = `Downloading Liquid AI: ${Math.floor(progress.progress)}%`;
+      const { env, pipeline } = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2");
+      const model = "daveycodez/LFM3-1.7B-Web-ONNX";
+      const revision = "9cda8fa27706d239b9c58f53a867d398e313b961";
+      const weightsUrl = `https://huggingface.co/${model}/resolve/${revision}/onnx/model_q4f16.onnx_data`;
+      const cache = await caches.open(env.cacheKey);
+      if (!(await cache.match(weightsUrl))) {
+        const response = await fetch(weightsUrl);
+        if (!response.ok || !response.body) throw new Error("Could not download model weights.");
+        const size = 900061184;
+        let downloaded = 0;
+        let percent = -1;
+        const stream = response.body.pipeThrough(new TransformStream({
+          transform(chunk, controller) {
+            downloaded += chunk.byteLength;
+            const nextPercent = Math.min(100, Math.floor(100 * downloaded / size));
+            if (nextPercent !== percent) {
+              percent = nextPercent;
+              goalLabel.innerText = `Downloading Liquid AI: ${percent}%`;
+            }
+            controller.enqueue(chunk);
+          },
+          flush() {
+            if (downloaded !== size) throw new Error("Incomplete model weights.");
           }
-        }
+        }));
+        await cache.put(weightsUrl, new Response(stream, {
+          headers: { "Content-Type": "application/octet-stream" }
+        }));
+      }
+      goalLabel.innerText = "Initializing Liquid AI from cache";
+      return pipeline("text-generation", model, {
+        revision,
+        dtype: "q4f16",
+        device: "webgpu"
       });
     }
 
