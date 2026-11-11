@@ -1,0 +1,1766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Chronos Sanctum — Autonomous Machine Playing (Liquid AI LFM3)</title>
+  <!-- Three.js and OrbitControls via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    :root {
+      --bg: #06080e;
+      --panel-bg: rgba(13, 17, 23, 0.94);
+      --border: rgba(56, 189, 248, 0.35);
+      --accent-cyan: #38bdf8;
+      --accent-gold: #fbbf24;
+      --accent-purple: #c084fc;
+      --accent-green: #34d399;
+      --text: #f1f5f9;
+      --text-dim: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(10, 14, 20, 0.92);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .brand-title {
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #38bdf8, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .main-container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* Floating View Mode Selector */
+    .view-selector {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      display: flex;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 4px;
+      gap: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+    }
+    .view-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .view-btn.active {
+      background: var(--accent-cyan);
+      color: #000;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+
+    /* Floating Live Action Pill */
+    .agent-status-pill {
+      position: absolute;
+      top: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+
+    /* Floating Live Thought Banner */
+    .thought-banner {
+      position: absolute;
+      top: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #f8fafc;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.55);
+      max-width: 90vw;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+    .thought-icon { font-size: 13px; }
+    .thought-label { color: var(--accent-gold); font-weight: 700; white-space: nowrap; }
+    .thought-content { color: #f1f5f9; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 480px; }
+
+    /* Desktop Panels */
+    .hud-panel {
+      position: absolute;
+      top: 15px;
+      bottom: 65px;
+      width: 320px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .hud-left { left: 15px; }
+    .hud-right { right: 15px; width: 360px; }
+    .panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.02);
+    }
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 8px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom: 2px solid var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .transcript-entry {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .transcript-role {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--accent-gold);
+      margin-bottom: 2px;
+    }
+    .transcript-text {
+      color: var(--text);
+      font-size: 11px;
+    }
+    pre {
+      font-family: monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      color: #cbd5e1;
+    }
+
+    /* Mobile Drawer Toggle */
+    .mobile-drawer-toggle {
+      display: none;
+      position: absolute;
+      bottom: 64px;
+      right: 15px;
+      z-index: 25;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      color: var(--accent-cyan);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+
+    /* Bottom Control Bar */
+    .bottom-bar {
+      height: 54px;
+      background: rgba(10, 14, 20, 0.96);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 10px;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .bottom-bar::-webkit-scrollbar { display: none; }
+    .btn {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      border-radius: 20px;
+      padding: 7px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+    .btn-gold {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      background: rgba(251, 191, 36, 0.15);
+    }
+    .btn-gold:hover {
+      background: var(--accent-gold);
+      color: #000;
+    }
+    .btn-green {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+      background: rgba(52, 211, 153, 0.15);
+    }
+    .btn-green:hover {
+      background: var(--accent-green);
+      color: #000;
+    }
+    .btn-secondary {
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.06);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      box-shadow: 0 0 6px #10b981;
+    }
+
+    /* Mobile Responsive Layout */
+    @media (max-width: 860px) {
+      .hud-left { display: none; }
+      .mobile-drawer-toggle { display: block; }
+      .hud-right {
+        left: 10px;
+        right: 10px;
+        width: calc(100vw - 20px);
+        bottom: 60px;
+        top: auto;
+        height: 280px;
+        transform: translateY(320px);
+        z-index: 30;
+      }
+      .hud-right.open {
+        transform: translateY(0);
+      }
+      .view-selector { top: 8px; }
+      .agent-status-pill { top: 46px; font-size: 10px; padding: 3px 10px; }
+      .thought-banner { top: 78px; font-size: 10px; padding: 4px 10px; }
+      .thought-content { max-width: 220px; }
+      .brand-title { font-size: 12px; }
+      .header-stats { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-title">CHRONOS SANCTUM</div>
+      <span class="badge">Liquid AI LFM3-1.7B</span>
+      <span class="badge" style="border-color: var(--accent-purple); color: var(--accent-purple);">Clawblox Kinematics</span>
+    </div>
+    <div class="header-stats" style="font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 12px;">
+      <span><span class="status-dot"></span>Simulation: <strong id="status-text" style="color: #fff;">Autonomous Play</strong></span>
+      <span>Tick: <strong id="tick-counter" style="color: var(--accent-cyan);">0</strong></span>
+      <span>Holding: <strong id="holding-text" style="color: var(--accent-gold);">None</strong></span>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="canvas-container"></div>
+
+    <!-- Quick Camera Mode Buttons -->
+    <div class="view-selector">
+      <button class="view-btn active" id="cam-agent-btn" onclick="setCamera('agent')">🎯 Follow Eko</button>
+      <button class="view-btn" id="cam-spire-btn" onclick="setCamera('spire')">🏰 Astral Spire (10m)</button>
+      <button class="view-btn" id="cam-overview-btn" onclick="setCamera('overview')">🌌 Sanctum Overview</button>
+      <button class="view-btn" id="bubble-toggle-btn" onclick="toggleThoughtBubble()" style="color: var(--accent-gold);">💭 Bubble: ON</button>
+    </div>
+
+    <!-- Floating Live Agent Action Pill -->
+    <div class="agent-status-pill">
+      <span class="status-dot"></span>
+      <span>Eko Goal: <strong id="goal-pill-text" style="color: var(--accent-cyan);">Standing on Altar</strong></span>
+      <span style="color: rgba(255,255,255,0.4);">|</span>
+      <span>Action: <strong id="action-state-text" style="color: var(--accent-gold);">Idle</strong></span>
+      <span style="color: rgba(255,255,255,0.4);">|</span>
+      <span>Altitude: <strong id="alt-pill-text" style="color: var(--accent-green);">0.35m</strong></span>
+    </div>
+
+    <!-- Floating Live Thought Banner -->
+    <div class="thought-banner" id="thought-banner">
+      <span class="thought-icon">💭</span>
+      <span class="thought-label">Eko's Mind:</span>
+      <span id="thought-banner-text" class="thought-content">"Observing celestial geometry and testing bipedal movement from atop Starlight Altar."</span>
+    </div>
+
+    <!-- Left HUD: Agent Mind & Action Transcript -->
+    <div class="hud-panel hud-left">
+      <div class="panel-header">
+        <span>Agent Stream (Eko)</span>
+        <span id="action-badge" class="badge" style="font-size: 10px;">Active</span>
+      </div>
+      <div class="panel-body" id="transcript-container">
+        <div class="transcript-entry">
+          <div class="transcript-role">System Initialization</div>
+          <div class="transcript-text">Connected to Chronos Sanctum. Surface collision active: Eko stands firmly on Starlight Altar with zero floor clipping.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right HUD: Dynamic Memory Viewer -->
+    <div class="hud-panel hud-right" id="memory-drawer">
+      <div class="panel-header">
+        <span>Agent Cognitive Memory</span>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 10px;" onclick="exportEpisodicLogs()" title="Download EPISODIC_MEMORY.jsonl">📥 Export Log</button>
+          <button onclick="toggleMobileDrawer()" style="background: none; border: none; color: var(--text-dim); font-size: 14px; cursor: pointer;">✕</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('semantic')">SEMANTIC</button>
+        <button class="tab-btn" onclick="switchTab('episodic')">EPISODIC <span id="episodic-count-badge" style="color: var(--accent-cyan); font-size: 9px;"></span></button>
+        <button class="tab-btn" onclick="switchTab('soul')">SOUL</button>
+        <button class="tab-btn" onclick="switchTab('api')">API</button>
+      </div>
+      <div class="panel-body">
+        <pre id="memory-text"></pre>
+      </div>
+    </div>
+
+    <!-- Mobile Button to Open Drawer -->
+    <button class="mobile-drawer-toggle" id="drawer-toggle-btn" onclick="toggleMobileDrawer()">
+      🧠 Agent Memory & Thoughts
+    </button>
+  </div>
+
+  <!-- Bottom Navigation & Controls -->
+  <div class="bottom-bar">
+    <button class="btn btn-green" onclick="triggerPickAndCarry()">🤲 Pick Up Object</button>
+    <button class="btn btn-gold" onclick="triggerShatterTest()">💥 Throw & Shatter (Kinetic Resonance)</button>
+    <button class="btn" onclick="triggerSuperJump()">🚀 Super-Jump Spire Throw (12.6m)</button>
+    <button class="btn btn-secondary" onclick="triggerClimbSpire()">🧗 Climb Astral Spire</button>
+    <button class="btn btn-secondary" onclick="triggerTowerBuild()">🏗️ Build Tower</button>
+    <button class="btn btn-secondary" onclick="resetWorld()">🔄 Reset Altar</button>
+    <div style="flex: 1;"></div>
+    <button class="btn btn-secondary" id="play-btn" onclick="togglePlay()">⏸️ Pause</button>
+  </div>
+
+  <script>
+    // --- THREE.JS SCENE SETUP ---
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x06080e);
+    scene.fog = new THREE.FogExp2(0x06080e, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(52, container.clientWidth / container.clientHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+
+    // --- ENVIRONMENT LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0x1e293b, 1.4);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xe0f2fe, 1.8);
+    sunLight.position.set(30, 60, 25);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 130;
+    sunLight.shadow.camera.left = -40;
+    sunLight.shadow.camera.right = 40;
+    sunLight.shadow.camera.top = 40;
+    sunLight.shadow.camera.bottom = -40;
+    scene.add(sunLight);
+
+    const spireLight = new THREE.PointLight(0x38bdf8, 4.0, 35);
+    spireLight.position.set(-16, 12, 30);
+    scene.add(spireLight);
+
+    // --- STARFIELD ---
+    const starCount = 1400;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i += 3) {
+      starPos[i] = (Math.random() - 0.5) * 350;
+      starPos[i+1] = Math.random() * 160 + 5;
+      starPos[i+2] = (Math.random() - 0.5) * 350;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0x93c5fd, size: 0.9, transparent: true, opacity: 0.85 });
+    const stars = new THREE.Points(starGeo, starMat);
+    scene.add(stars);
+
+    // ==============================================================
+    // --- ACCURATE MULTI-TIER SURFACE ELEVATION FUNCTION ---
+    // ==============================================================
+    function getSurfaceElevation(x, z) {
+      // 1. Central Starlight Altar
+      const dAltar = Math.hypot(x, z);
+      if (dAltar <= 4.2) {
+        return 0.35; // Top of the altar dais!
+      } else if (dAltar <= 4.9) {
+        // Outer beveled step
+        return 0.18;
+      }
+
+      // 2. Stepped Terraces leading to Astral Spire
+      if (Math.abs(x - (-16)) < 2.5 && Math.abs(z - 23) < 2.0) {
+        return 2.5; // Terrace 1
+      }
+      if (Math.abs(x - (-16)) < 2.5 && Math.abs(z - 26) < 2.0) {
+        return 5.0; // Terrace 2
+      }
+      if (Math.abs(x - (-16)) < 2.5 && Math.abs(z - 30) < 2.5) {
+        return 10.4; // Crown Summit of 10m Spire
+      }
+
+      // 3. Ground floor
+      return 0.0;
+    }
+
+    // --- CELESTIAL SANCTUM GEOMETRY ---
+    const groundGeo = new THREE.CylinderGeometry(36, 30, 3, 48);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85, metalness: 0.1 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.position.y = -1.5;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    const grid = new THREE.GridHelper(70, 70, 0x38bdf8, 0x1e293b);
+    grid.position.y = 0.02;
+    scene.add(grid);
+
+    // 10-Meter Astral Spire
+    const spireGeo = new THREE.BoxGeometry(4.5, 10.0, 4.5);
+    const spireMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.25, metalness: 0.75 });
+    const spire = new THREE.Mesh(spireGeo, spireMat);
+    spire.position.set(-16, 5.0, 30);
+    spire.castShadow = true;
+    spire.receiveShadow = true;
+    scene.add(spire);
+
+    const spireCrownGeo = new THREE.CylinderGeometry(2.8, 2.8, 0.4, 24);
+    const spireCrownMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.6,
+      roughness: 0.2
+    });
+    const spireCrown = new THREE.Mesh(spireCrownGeo, spireCrownMat);
+    spireCrown.position.set(-16, 10.2, 30);
+    scene.add(spireCrown);
+
+    // Stepped Terraces (for climbing)
+    const t1Mat = new THREE.MeshStandardMaterial({ color: 0x253347, roughness: 0.4, metalness: 0.5 });
+    const t1 = new THREE.Mesh(new THREE.BoxGeometry(4.5, 2.5, 3.5), t1Mat);
+    t1.position.set(-16, 1.25, 23); t1.castShadow = true; t1.receiveShadow = true; scene.add(t1);
+
+    const t2 = new THREE.Mesh(new THREE.BoxGeometry(4.5, 5.0, 3.5), t1Mat);
+    t2.position.set(-16, 2.5, 26); t2.castShadow = true; t2.receiveShadow = true; scene.add(t2);
+
+    // Chronos Halo (Golden Torus)
+    const haloGeo = new THREE.TorusGeometry(3.6, 0.3, 16, 48);
+    const haloMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.7,
+      roughness: 0.2,
+      metalness: 0.8
+    });
+    const halo = new THREE.Mesh(haloGeo, haloMat);
+    halo.position.set(0, 3.5, -15);
+    halo.rotation.x = Math.PI / 2;
+    scene.add(halo);
+
+    // --- REFINED CELESTIAL STARLIGHT ALTAR (MULTI-TIERED DAIS) ---
+    const altarGroup = new THREE.Group();
+
+    // Base Plinth Step (Radius 4.9, Height 0.18)
+    const plinthGeo = new THREE.CylinderGeometry(4.7, 5.0, 0.18, 48);
+    const plinthMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7, metalness: 0.2 });
+    const plinthMesh = new THREE.Mesh(plinthGeo, plinthMat);
+    plinthMesh.position.y = 0.09;
+    plinthMesh.receiveShadow = true;
+    altarGroup.add(plinthMesh);
+
+    // Inner Altar Dais (Radius 4.2, Height 0.18)
+    const daisGeo = new THREE.CylinderGeometry(4.2, 4.4, 0.18, 48);
+    const daisMat = new THREE.MeshStandardMaterial({
+      color: 0x2e1065, // Rich deep cosmic violet
+      emissive: 0x3b0764,
+      emissiveIntensity: 0.3,
+      roughness: 0.5,
+      metalness: 0.3
+    });
+    const daisMesh = new THREE.Mesh(daisGeo, daisMat);
+    daisMesh.position.y = 0.26;
+    daisMesh.receiveShadow = true;
+    altarGroup.add(daisMesh);
+
+    // Glowing Starlight Altar Rim (Torus trim at y=0.35)
+    const rimGeo = new THREE.TorusGeometry(4.2, 0.05, 16, 64);
+    const rimMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.8,
+      roughness: 0.2
+    });
+    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+    rimMesh.rotation.x = Math.PI / 2;
+    rimMesh.position.y = 0.35;
+    altarGroup.add(rimMesh);
+
+    // Inlaid Golden Mandala Pattern (Ring on top of Altar)
+    const mandalaGeo = new THREE.RingGeometry(2.0, 2.2, 48);
+    const mandalaMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+    const mandalaMesh = new THREE.Mesh(mandalaGeo, mandalaMat);
+    mandalaMesh.rotation.x = Math.PI / 2;
+    mandalaMesh.position.y = 0.352;
+    altarGroup.add(mandalaMesh);
+
+    scene.add(altarGroup);
+
+    // ==============================================================
+    // --- FULLY ARTICULATED CYBERNETIC HUMANOID AVATAR (EKO) ---
+    // ==============================================================
+    const agentGroup = new THREE.Group();
+
+    // Materials
+    const cyanArmorMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.7, roughness: 0.25 });
+    const whiteChassisMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.4, roughness: 0.2 });
+    const goldJointMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.2 });
+    const emissiveCyanMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 1.0 });
+
+    // 1. Concentric Ground Aura Rings
+    const auraGeo = new THREE.RingGeometry(0.8, 1.3, 32);
+    const auraMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.65 });
+    const auraRing = new THREE.Mesh(auraGeo, auraMat);
+    auraRing.rotation.x = Math.PI / 2;
+    auraRing.position.y = 0.05;
+    agentGroup.add(auraRing);
+
+    const outerAuraGeo = new THREE.RingGeometry(1.6, 1.85, 32);
+    const outerAuraMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+    const outerAuraRing = new THREE.Mesh(outerAuraGeo, outerAuraMat);
+    outerAuraRing.rotation.x = Math.PI / 2;
+    outerAuraRing.position.y = 0.04;
+    agentGroup.add(outerAuraRing);
+
+    // 2. Pelvis / Hip Pivot (at y=0.88 within agentGroup)
+    const pelvisGroup = new THREE.Group();
+    pelvisGroup.position.y = 0.88;
+    const pelvisMesh = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.22, 0.32), whiteChassisMat);
+    pelvisMesh.castShadow = true;
+    pelvisGroup.add(pelvisMesh);
+    agentGroup.add(pelvisGroup);
+
+    // 3. Legs & Feet
+    function createLeg(side) {
+      const hipJoint = new THREE.Group();
+      hipJoint.position.set(side * 0.18, -0.05, 0);
+
+      // Thigh
+      const thighMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.38, 12), cyanArmorMat);
+      thighMesh.position.y = -0.19;
+      thighMesh.castShadow = true;
+      hipJoint.add(thighMesh);
+
+      // Knee Joint
+      const kneeGroup = new THREE.Group();
+      kneeGroup.position.y = -0.38;
+      const kneeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), goldJointMat);
+      kneeGroup.add(kneeMesh);
+
+      // Shin / Lower Leg
+      const shinMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.38, 12), whiteChassisMat);
+      shinMesh.position.y = -0.19;
+      shinMesh.castShadow = true;
+      kneeGroup.add(shinMesh);
+
+      // Foot
+      const footMesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.26), cyanArmorMat);
+      footMesh.position.set(0, -0.38, 0.06);
+      footMesh.castShadow = true;
+      kneeGroup.add(footMesh);
+
+      hipJoint.add(kneeGroup);
+      return { hipJoint, kneeGroup };
+    }
+
+    const leftLeg = createLeg(-1);
+    pelvisGroup.add(leftLeg.hipJoint);
+
+    const rightLeg = createLeg(1);
+    pelvisGroup.add(rightLeg.hipJoint);
+
+    // 4. Torso & Chest
+    const torsoGroup = new THREE.Group();
+    torsoGroup.position.y = 0.12;
+
+    const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.28, 0.65, 14), whiteChassisMat);
+    chestMesh.position.y = 0.34;
+    chestMesh.castShadow = true;
+    torsoGroup.add(chestMesh);
+
+    // Pulsing Neural Core (Chest)
+    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), emissiveCyanMat);
+    coreMesh.position.set(0, 0.42, 0.28);
+    torsoGroup.add(coreMesh);
+
+    // 5. Head & Glowing Visor
+    const headGroup = new THREE.Group();
+    headGroup.position.y = 0.82;
+
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), whiteChassisMat);
+    headMesh.castShadow = true;
+    headGroup.add(headMesh);
+
+    const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.10, 0.16), emissiveCyanMat);
+    visorMesh.position.set(0, 0.02, 0.20);
+    headGroup.add(visorMesh);
+
+    // Floating Name Tag Sprite
+    function createNameTag(text) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256; canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+      ctx.roundRect(8, 6, 240, 52, 16); ctx.fill();
+      ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = "#38bdf8"; ctx.font = "bold 24px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(text, 128, 41);
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(2.8, 0.7, 1);
+      sprite.position.y = 0.58;
+      return sprite;
+    }
+    const nameTag = createNameTag("● EKO (LFM-3)");
+    headGroup.add(nameTag);
+
+    // --- 3D FLOATING THOUGHT BUBBLE DIALOGUE SYSTEM ---
+    const thoughtCanvas = document.createElement("canvas");
+    thoughtCanvas.width = 640;
+    thoughtCanvas.height = 320;
+    const thoughtCtx = thoughtCanvas.getContext("2d");
+    const thoughtTexture = new THREE.CanvasTexture(thoughtCanvas);
+    thoughtTexture.minFilter = THREE.LinearFilter;
+    const thoughtSpriteMat = new THREE.SpriteMaterial({ map: thoughtTexture, transparent: true, depthTest: false });
+    const thoughtSprite = new THREE.Sprite(thoughtSpriteMat);
+    thoughtSprite.scale.set(4.2, 2.1, 1.0);
+    thoughtSprite.position.set(0, 1.70, 0); // Floats directly above nameTag & head
+    headGroup.add(thoughtSprite);
+
+    let isThoughtBubbleVisible = true;
+    let currentThoughtText = "Observing celestial geometry and testing bipedal movement from atop Starlight Altar.";
+
+    function wrapCanvasText(ctx, text, maxWidth) {
+      const words = text.split(" ");
+      const lines = [];
+      let currentLine = "";
+      for (let i = 0; i < words.length; i++) {
+        const testLine = currentLine ? currentLine + " " + words[i] : words[i];
+        if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+          lines.push(currentLine);
+          currentLine = words[i];
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      return lines;
+    }
+
+    function renderThoughtBubble(thought) {
+      currentThoughtText = thought;
+      const ctx = thoughtCtx;
+      ctx.clearRect(0, 0, 640, 320);
+
+      if (!isThoughtBubbleVisible) {
+        thoughtTexture.needsUpdate = true;
+        return;
+      }
+
+      // Outer Glow
+      ctx.save();
+      ctx.shadowColor = "rgba(56, 189, 248, 0.45)";
+      ctx.shadowBlur = 16;
+
+      // Main Thought Cloud / Bubble Card
+      const bx = 20, by = 16, bw = 600, bh = 210, br = 26;
+      ctx.fillStyle = "rgba(10, 15, 28, 0.94)";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, br);
+      ctx.fill();
+
+      // Border Gradient
+      const grad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+      grad.addColorStop(0, "#38bdf8");
+      grad.addColorStop(0.5, "#fbbf24");
+      grad.addColorStop(1, "#c084fc");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+
+      // Trailing Comic Thought Dots
+      const dots = [
+        { x: 320, y: 248, r: 12, lw: 3.5 },
+        { x: 308, y: 275, r: 8, lw: 2.5 },
+        { x: 300, y: 298, r: 5, lw: 2 }
+      ];
+      dots.forEach(d => {
+        ctx.save();
+        ctx.shadowColor = "rgba(56, 189, 248, 0.6)";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "rgba(10, 15, 28, 0.95)";
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = d.lw;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Header Tag: Identity & Cognition Mode
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText("💭 EKO'S THOUGHT PROCESS [LFM-3]", 44, 54);
+
+      // Subtle Divider
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(44, 68);
+      ctx.lineTo(596, 68);
+      ctx.stroke();
+
+      // Thought Monologue Lines
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "italic 500 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      const wrapped = wrapCanvasText(ctx, `“${thought}”`, 530);
+      const startY = 104;
+      const lineHeight = 34;
+      wrapped.slice(0, 3).forEach((line, idx) => {
+        ctx.fillText(line, 44, startY + idx * lineHeight);
+      });
+
+      thoughtTexture.needsUpdate = true;
+
+      // Update Top HUD banner
+      const bannerText = document.getElementById("thought-banner-text");
+      if (bannerText) bannerText.innerText = `“${thought}”`;
+    }
+
+    renderThoughtBubble(currentThoughtText);
+
+    function setAgentThought(thought) {
+      renderThoughtBubble(thought);
+      addTranscriptEntry("Eko Mind", `💭 "${thought}"`);
+    }
+
+    function toggleThoughtBubble() {
+      isThoughtBubbleVisible = !isThoughtBubbleVisible;
+      renderThoughtBubble(currentThoughtText);
+      const btn = document.getElementById("bubble-toggle-btn");
+      if (btn) btn.innerText = isThoughtBubbleVisible ? "💭 Bubble: ON" : "💭 Bubble: OFF";
+    }
+
+    torsoGroup.add(headGroup);
+
+    // 6. Arms & Sculpted Hands
+    function createArm(side) {
+      const shoulderGroup = new THREE.Group();
+      shoulderGroup.position.set(side * 0.38, 0.55, 0);
+
+      const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), goldJointMat);
+      shoulderGroup.add(pauldron);
+
+      const upperArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.32, 10), cyanArmorMat);
+      upperArmMesh.position.y = -0.16;
+      upperArmMesh.castShadow = true;
+      shoulderGroup.add(upperArmMesh);
+
+      const elbowGroup = new THREE.Group();
+      elbowGroup.position.y = -0.32;
+      const elbowMesh = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), goldJointMat);
+      elbowGroup.add(elbowMesh);
+
+      const forearmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.28, 10), whiteChassisMat);
+      forearmMesh.position.y = -0.14;
+      forearmMesh.castShadow = true;
+      elbowGroup.add(forearmMesh);
+
+      const handGroup = new THREE.Group();
+      handGroup.position.y = -0.28;
+
+      const palmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.10, 0.06), cyanArmorMat);
+      handGroup.add(palmMesh);
+
+      for (let f = -1; f <= 1; f++) {
+        const finger = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.06, 0.03), goldJointMat);
+        finger.position.set(f * 0.03, -0.06, 0.02);
+        handGroup.add(finger);
+      }
+
+      elbowGroup.add(handGroup);
+      shoulderGroup.add(elbowGroup);
+      return { shoulderGroup, elbowGroup, handGroup };
+    }
+
+    const leftArm = createArm(-1);
+    torsoGroup.add(leftArm.shoulderGroup);
+
+    const rightArm = createArm(1);
+    torsoGroup.add(rightArm.shoulderGroup);
+
+    pelvisGroup.add(torsoGroup);
+
+    const agentSpot = new THREE.PointLight(0x38bdf8, 2.5, 12);
+    agentSpot.position.set(0, 1.8, 0);
+    agentGroup.add(agentSpot);
+
+    // Initial position on top of Starlight Altar surface (y = 0.35m)
+    agentGroup.position.set(0, 0.35, 1.5);
+    scene.add(agentGroup);
+
+    // --- PROPS & SIMULATION ENTITIES ---
+    const entities = [];
+    const entityMeshes = new Map();
+
+    function addEntity(id, name, shape, size, pos, color, mass=1.0, attrs={}) {
+      const ent = { id, name, shape, size, pos: [...pos], vel: [0,0,0], color, mass, attrs };
+      entities.push(ent);
+
+      const [sx, sy, sz] = size;
+      const [r, g, b] = color;
+      let geo;
+      if (shape === "sphere") geo = new THREE.SphereGeometry(sx/2, 24, 24);
+      else if (shape === "cylinder") geo = new THREE.CylinderGeometry(sx/2, sx/2, sy, 24);
+      else geo = new THREE.BoxGeometry(sx, sy, sz);
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(r, g, b),
+        roughness: 0.3,
+        metalness: name === "AetherOrb" ? 0.85 : 0.2,
+        emissive: attrs.Luminous ? new THREE.Color(r, g, b) : new THREE.Color(0,0,0),
+        emissiveIntensity: attrs.Luminous ? 0.6 : 0.0
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.position.set(...pos);
+      scene.add(mesh);
+      entityMeshes.set(id, mesh);
+      return ent;
+    }
+
+    // Default Entity Initializer
+    function initDefaultEntities() {
+      // 8 Resonant Prisms (Around the perimeter)
+      for (let i = 1; i <= 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const rad = 6.8 + (i % 2) * 1.5;
+        const px = Math.cos(angle) * rad;
+        const pz = Math.sin(angle) * rad;
+        const py = getSurfaceElevation(px, pz) + 0.45;
+        addEntity(`Prism_${i}`, `Prism_${i}`, "box", [0.9, 0.9, 0.9],
+                  [px, py, pz], [0.22, 0.74, 0.97], 1.2, { Resonant: true });
+      }
+
+      // Heavy Golden AetherOrb (Placed safely on outer floor, clear of the altar)
+      const orbX = -6.0, orbZ = -4.0;
+      const orbY = getSurfaceElevation(orbX, orbZ) + 0.65;
+      addEntity("AetherOrb", "AetherOrb", "sphere", [1.3, 1.3, 1.3],
+                [orbX, orbY, orbZ], [0.98, 0.75, 0.14], 4.5, { Dense: true });
+    }
+
+    // --- CAMERA MODES & DEFAULT POSITIONING ---
+    let cameraMode = 'agent';
+
+    function setCamera(mode) {
+      cameraMode = mode;
+      document.querySelectorAll(".view-btn").forEach(b => b.classList.remove("active"));
+      if (mode === 'agent') {
+        document.getElementById("cam-agent-btn").classList.add("active");
+        camera.position.set(agentGroup.position.x + 3.2, agentGroup.position.y + 4.2, agentGroup.position.z + 7.5);
+        controls.target.set(agentGroup.position.x, agentGroup.position.y + 1.1, agentGroup.position.z);
+      } else if (mode === 'spire') {
+        document.getElementById("cam-spire-btn").classList.add("active");
+        camera.position.set(-16, 16, 45);
+        controls.target.set(-16, 8, 30);
+      } else if (mode === 'overview') {
+        document.getElementById("cam-overview-btn").classList.add("active");
+        camera.position.set(0, 26, 46);
+        controls.target.set(0, 2, 0);
+      }
+    }
+    setCamera('agent');
+
+    // --- AGENT KINEMATICS, STATE & ANIMATION ---
+    let agentState = {
+      pos: [0, 0.35, 1.5],
+      vel: [0, 0, 0],
+      targetPos: [0, 0.35, 2.5],
+      holdingId: null,
+      actionState: 'walk',
+      behaviorIndex: 0,
+      timer: 80,
+      walkCycle: 0,
+      throwTimer: 0,
+      pickTimer: 0,
+      luxCount: 0
+    };
+
+    const behaviors = [
+      {
+        name: "Surveying Sanctuary",
+        target: [0, 0.35, 2.5],
+        action: "Observing celestial geometry from atop Starlight Altar.",
+        thought: "I stand atop the Starlight Altar. 8 prisms resonate around me... what secrets does this sanctum hold?"
+      },
+      {
+        name: "Stepping Down to AetherOrb",
+        target: [-6.0, 0, -4.0],
+        action: "Descending altar steps towards dense golden AetherOrb.",
+        thought: "My bipedal gait is steady. That golden orb at [-6, -4] looks unusually dense (mass 4.5)."
+      },
+      {
+        name: "Lifting AetherOrb",
+        target: [-6.0, 0, -4.0],
+        action: "Reaching out with articulated hands to lift AetherOrb.",
+        thought: "Squatting down... grasping with articulated fingers. High inertia, but my cybernetic arms can lift it!"
+      },
+      {
+        name: "Kinetic Resonance Throw",
+        target: [8, 0, 0],
+        action: "Winding back arm and hurling AetherOrb at monolith!",
+        thought: "Hypothesis: If I hurl this orb with speed > 9.5 m/s at the monolith, kinetic resonance will trigger!"
+      },
+      {
+        name: "Gathering LuxCubes",
+        target: [10, 0, 0],
+        action: "Collecting newly spawned luminous LuxCubes.",
+        thought: "It shattered into 3 glowing LuxCubes! These will be perfect building blocks for construction."
+      },
+      {
+        name: "Climbing Spire Terraces",
+        target: [-16, 2.5, 23],
+        action: "Leaping up the stepped stone terraces towards 10m summit.",
+        thought: "The Astral Spire is 10m high. Testing step-by-step terrace jumps: 2.5m -> 5.0m -> Summit!"
+      },
+      {
+        name: "Super-Jump Spire Conquest",
+        target: [-16, 0, 26],
+        action: "Executing Super-Jump Throw mid-air to land block atop Spire!",
+        thought: "Can I reach the 10m crown? Jumping high and throwing at flight apex to transfer 60% vertical impulse!"
+      },
+      {
+        name: "Ascending Starlight Altar",
+        target: [0, 0.35, 0],
+        action: "Carrying resonant prisms and balancing into 3-tier tower on altar.",
+        thought: "Returning to the Starlight Altar. I'll stack 3 resonant prisms into a vertical monument."
+      }
+    ];
+
+    let tick = 0;
+    let isPlaying = true;
+    let currentTab = 'semantic';
+
+    // ==============================================================
+    // --- WORLD STATE PERSISTENCE (PREVENTS RESET ON BROWSER REFRESH) ---
+    // ==============================================================
+    function saveWorldState() {
+      try {
+        const saveObj = {
+          version: 2,
+          timestamp: Date.now(),
+          tick: tick,
+          agentState: {
+            pos: [...agentState.pos],
+            vel: [...agentState.vel],
+            targetPos: [...agentState.targetPos],
+            holdingId: agentState.holdingId,
+            actionState: agentState.actionState,
+            behaviorIndex: agentState.behaviorIndex,
+            timer: agentState.timer,
+            walkCycle: agentState.walkCycle,
+            luxCount: agentState.luxCount,
+            currentThoughtText: currentThoughtText
+          },
+          entities: entities.map(e => ({
+            id: e.id,
+            name: e.name,
+            shape: e.shape,
+            size: [...e.size],
+            pos: [...e.pos],
+            vel: [...e.vel],
+            color: [...e.color],
+            mass: e.mass,
+            attrs: { ...e.attrs }
+          })),
+          recentTranscripts: Array.from(document.querySelectorAll("#transcript-container .transcript-entry")).slice(0, 20).map(el => ({
+            role: el.querySelector(".transcript-role") ? el.querySelector(".transcript-role").innerText : "System",
+            text: el.querySelector(".transcript-text") ? el.querySelector(".transcript-text").innerText : el.innerText
+          }))
+        };
+        localStorage.setItem("chronos_sanctum_world_save", JSON.stringify(saveObj));
+      } catch (e) {
+        console.warn("Could not save world state:", e);
+      }
+    }
+
+    function loadWorldState() {
+      try {
+        const raw = localStorage.getItem("chronos_sanctum_world_save");
+        if (!raw) return false;
+        const saved = JSON.parse(raw);
+        if (!saved || !saved.agentState || !Array.isArray(saved.entities) || saved.entities.length === 0) return false;
+
+        // Restore Tick
+        tick = saved.tick || 0;
+        const tickEl = document.getElementById("tick-counter");
+        if (tickEl) tickEl.innerText = tick;
+
+        // Restore Agent State
+        Object.assign(agentState, saved.agentState);
+        agentGroup.position.set(...agentState.pos);
+
+        if (saved.agentState.currentThoughtText) {
+          currentThoughtText = saved.agentState.currentThoughtText;
+          renderThoughtBubble(currentThoughtText);
+        }
+
+        const b = behaviors[agentState.behaviorIndex] || behaviors[0];
+        const goalEl = document.getElementById("goal-pill-text");
+        if (goalEl) goalEl.innerText = b.name;
+        const actEl = document.getElementById("action-state-text");
+        if (actEl) actEl.innerText = agentState.actionState;
+        const altEl = document.getElementById("alt-pill-text");
+        if (altEl) altEl.innerText = `${agentState.pos[1].toFixed(2)}m`;
+        const holdEl = document.getElementById("holding-text");
+        if (holdEl) holdEl.innerText = agentState.holdingId || "None";
+
+        // Restore Entities
+        saved.entities.forEach(ent => {
+          const added = addEntity(ent.id, ent.name, ent.shape, ent.size, ent.pos, ent.color, ent.mass, ent.attrs);
+          added.vel = [...(ent.vel || [0,0,0])];
+        });
+
+        // Restore Transcripts
+        if (Array.isArray(saved.recentTranscripts) && saved.recentTranscripts.length > 0) {
+          const container = document.getElementById("transcript-container");
+          if (container) {
+            container.innerHTML = "";
+            saved.recentTranscripts.reverse().forEach(t => {
+              addTranscriptEntry(t.role, t.text);
+            });
+          }
+        }
+
+        addTranscriptEntry("World Persistence", `★ Chronos Sanctum world state restored from persistent memory (Tick: ${tick}). Simulation resumes uninterrupted.`);
+        return true;
+      } catch (e) {
+        console.error("Failed to load world state:", e);
+        return false;
+      }
+    }
+
+    // Initialize World (Restore from storage if exists, otherwise create default)
+    const isRestored = loadWorldState();
+    if (!isRestored) {
+      initDefaultEntities();
+      addTranscriptEntry("System Initialization", "Connected to Chronos Sanctum. Persistent world state active across browser reloads.");
+    }
+
+    function addTranscriptEntry(role, text) {
+      const container = document.getElementById("transcript-container");
+      const div = document.createElement("div");
+      div.className = "transcript-entry";
+      div.innerHTML = `<div class="transcript-role">${role}</div><div class="transcript-text">${text}</div>`;
+      container.prepend(div);
+      if (container.children.length > 30) container.removeChild(container.lastChild);
+    }
+
+    function spawnLuxCubes(originX, originY, originZ) {
+      for (let k = 1; k <= 3; k++) {
+        agentState.luxCount++;
+        const id = `LuxCube_${agentState.luxCount}`;
+        const ent = addEntity(id, id, "box", [0.8, 0.8, 0.8],
+                             [originX + (k-2)*1.2, originY + 1.2, originZ + (Math.random()-0.5)],
+                             [0.75, 0.52, 0.99], 0.8, { Luminous: true });
+        ent.vel = [(Math.random()-0.5)*4, 4 + Math.random()*3, (Math.random()-0.5)*4];
+      }
+      addTranscriptEntry("Kinetic Resonance", `★ KINETIC RESONANCE TRIGGERED! Impact speed > 9.5 m/s spawned 3 Luminous LuxCubes!`);
+      updateMemoryWithDiscovery("Kinetic Resonance Verified: Shattering AetherOrb yields 3 glowing LuxCubes for building.");
+    }
+
+    function updateMemoryWithDiscovery(discovery) {
+      if (!memoryCache.semantic.includes(discovery)) {
+        memoryCache.semantic += `\\n- *discovered* - ${discovery}`;
+        if (currentTab === 'semantic') switchTab('semantic');
+      }
+    }
+
+    // --- ACTIONS WITH REAL-TIME COGNITIVE THOUGHTS ---
+    function triggerPickAndCarry() {
+      let nearest = null;
+      let minDist = 999;
+      entities.forEach(ent => {
+        const d = Math.hypot(ent.pos[0] - agentState.pos[0], ent.pos[2] - agentState.pos[2]);
+        if (d < minDist && !ent.id.includes("Spire")) {
+          minDist = d; nearest = ent;
+        }
+      });
+      if (nearest) {
+        agentState.actionState = 'pick';
+        agentState.pickTimer = 25;
+        document.getElementById("action-state-text").innerText = "Picking Up";
+        setAgentThought(`Squatting knees and extending fingers to grasp ${nearest.id}...`);
+        addTranscriptEntry("Eko Kinematics", `Squatting and extending hands to pick up ${nearest.id}...`);
+
+        setTimeout(() => {
+          agentState.holdingId = nearest.id;
+          agentState.actionState = 'carry';
+          document.getElementById("action-state-text").innerText = "Carrying";
+          document.getElementById("holding-text").innerText = nearest.id;
+          setAgentThought(`Grasped ${nearest.id} with both hands! High mass detected. Checking balance while walking.`);
+          addTranscriptEntry("Eko Hands", `Successfully grasping ${nearest.id} with both hands.`);
+          recordEpisodicMemory("Picked Up Object", `Squatted down and grasped ${nearest.id} with articulated hands.`);
+        }, 600);
+      }
+    }
+
+    function triggerShatterTest() {
+      const orb = entities.find(e => e.id === "AetherOrb");
+      if (!orb) return;
+      agentState.holdingId = "AetherOrb";
+      orb.pos = [agentState.pos[0], agentState.pos[1] + 1.2, agentState.pos[2] + 0.5];
+      document.getElementById("holding-text").innerText = "AetherOrb";
+
+      agentState.actionState = 'throw';
+      agentState.throwTimer = 30;
+      document.getElementById("action-state-text").innerText = "Throwing";
+      setAgentThought("Winding back right arm overhead... launching AetherOrb at 12.5 m/s!");
+      addTranscriptEntry("Eko Kinematics", "Winding back right arm overhead for max impulse throw (v = 12.5 m/s)!");
+
+      setTimeout(() => {
+        agentState.holdingId = null;
+        document.getElementById("holding-text").innerText = "None";
+        orb.pos = [11.0, 1.2, 0];
+        orb.vel = [12.0, 2.0, 0];
+        spawnLuxCubes(11.0, 1.2, 0);
+        setAgentThought("★ Kinetic Resonance verified! Impact shattered AetherOrb into 3 glowing LuxCubes!");
+        recordEpisodicMemory("Kinetic Resonance Verified", "Hurled AetherOrb > 9.5 m/s against monolith; impact generated 3 luminous LuxCubes.");
+        agentState.actionState = 'walk';
+        document.getElementById("action-state-text").innerText = "Walking";
+        saveWorldState();
+      }, 700);
+    }
+
+    function triggerSuperJump() {
+      agentState.holdingId = `LuxCube_${agentState.luxCount || 1}`;
+      let ent = entities.find(e => e.id === agentState.holdingId);
+      if (!ent) {
+        agentState.luxCount++;
+        agentState.holdingId = `LuxCube_${agentState.luxCount}`;
+        ent = addEntity(agentState.holdingId, agentState.holdingId, "box", [0.8, 0.8, 0.8],
+                        [agentState.pos[0], agentState.pos[1]+1, agentState.pos[2]], [0.75, 0.52, 0.99], 0.8, { Luminous: true });
+      }
+      document.getElementById("holding-text").innerText = agentState.holdingId;
+
+      agentState.actionState = 'jump';
+      agentState.vel[1] = 6.2;
+      document.getElementById("action-state-text").innerText = "Super-Jump Launch";
+      setAgentThought("Leaping high with both legs! Reaching skyward to throw LuxCube at flight apex!");
+      addTranscriptEntry("Eko Kinematics", "Crouching knees and leaping high into the air! Both arms reaching skyward!");
+
+      setTimeout(() => {
+        agentState.actionState = 'throw';
+        agentState.throwTimer = 20;
+        document.getElementById("action-state-text").innerText = "Mid-Air Throw";
+        setAgentThought("Apex reached (y = 2.4m)! Hurling LuxCube with inherited vertical momentum!");
+        addTranscriptEntry("Eko Hands", "Mid-air apex reached (y = 2.4m)! Hurling LuxCube with inherited momentum!");
+
+        setTimeout(() => {
+          agentState.holdingId = null;
+          document.getElementById("holding-text").innerText = "None";
+          ent.pos = [-16, 10.6, 30];
+          ent.vel = [0, 0, 0];
+          const m = entityMeshes.get(ent.id);
+          if (m) m.position.set(...ent.pos);
+          setAgentThought("★ Super-Jump Spire Conquest! Object placed atop 10m Astral Spire summit!");
+          addTranscriptEntry("Spire Milestone", "★ OBJECT PLACED ATOP 10M ASTRAL SPIRE! Elevation record: 10.60m!");
+          updateMemoryWithDiscovery("Super-Jump Spire Affordance: Jump throw clears 12.6m vertical reach.");
+          recordEpisodicMemory("Spire Conquest via Super-Jump", "Inherited vertical jump impulse allowed placing block atop 10.4m Astral Spire crown.");
+        }, 400);
+      }, 500);
+    }
+
+    function triggerClimbSpire() {
+      agentState.actionState = 'climb';
+      document.getElementById("action-state-text").innerText = "Climbing Spire";
+      setAgentThought("Approaching stepped terraces of the Astral Spire. Leaping step-by-step...");
+      addTranscriptEntry("Eko Kinematics", "Approaching stepped terraces of the Astral Spire. Leaping step-by-step...");
+
+      agentState.pos = [-16, 2.5, 23];
+      agentGroup.position.set(...agentState.pos);
+
+      setTimeout(() => {
+        agentState.pos = [-16, 5.0, 26];
+        agentGroup.position.set(...agentState.pos);
+        setAgentThought("Climbed Terrace 2 (Altitude: 5.0m). Reaching for the high summit.");
+        addTranscriptEntry("Eko Kinematics", "Climbed Terrace 2 (Altitude: 5.0m). Reaching for the high summit.");
+
+        setTimeout(() => {
+          agentState.pos = [-16, 10.4, 30];
+          agentGroup.position.set(...agentState.pos);
+          setAgentThought("★ Astral Spire conquered! Standing atop the 10-meter summit crown!");
+          addTranscriptEntry("Spire Summit", "★ EKO HAS CONQUERED THE ASTRAL SPIRE! Standing atop the 10-meter summit crown!");
+          recordEpisodicMemory("Conquered Astral Spire Summit", "Climbed stepped terraces to reach the 10.4m crown summit.");
+        }, 1200);
+      }, 1200);
+    }
+
+    function triggerTowerBuild() {
+      agentState.actionState = 'pick';
+      document.getElementById("action-state-text").innerText = "Building Tower";
+      setAgentThought("Using articulated hands to align prisms into a 3-tier vertical column on the altar.");
+      addTranscriptEntry("Eko Hands", "Using articulated hands to align prisms into a 3-tier vertical column on the altar.");
+
+      setTimeout(() => {
+        const p1 = entities.find(e => e.id === "Prism_1");
+        const p2 = entities.find(e => e.id === "Prism_2");
+        const p3 = entities.find(e => e.id === "Prism_3");
+        // On top of altar (y = 0.35), stack blocks of height 0.9
+        if (p1) p1.pos = [0, 0.35 + 0.45, 0];
+        if (p2) p2.pos = [0, 0.35 + 0.45 + 0.9, 0];
+        if (p3) p3.pos = [0, 0.35 + 0.45 + 1.8, 0];
+        [p1, p2, p3].forEach(p => {
+          if (p) {
+            p.vel = [0,0,0];
+            const m = entityMeshes.get(p.id);
+            if (m) m.position.set(...p.pos);
+          }
+        });
+        agentState.actionState = 'walk';
+        document.getElementById("action-state-text").innerText = "Walking";
+        setAgentThought("3-Block balanced tower established on Starlight Altar (Height: 3.5m). Stable equilibrium!");
+        addTranscriptEntry("Tower Milestone", "3-Block balanced tower established at Starlight Altar (Height: 3.5m).");
+        recordEpisodicMemory("Constructed Balanced Tower", "Aligned 3 resonant prisms into a 3.5m stable tower on the Starlight Altar.");
+      }, 800);
+    }
+
+    function resetWorld() {
+      try {
+        localStorage.removeItem("chronos_sanctum_world_save");
+      } catch (e) {}
+
+      entities.forEach(ent => {
+        const m = entityMeshes.get(ent.id);
+        if (m) scene.remove(m);
+      });
+      entities.length = 0;
+      entityMeshes.clear();
+
+      agentState.pos = [0, 0.35, 1.5];
+      agentState.vel = [0, 0, 0];
+      agentState.targetPos = [0, 0.35, 2.5];
+      agentState.holdingId = null;
+      agentState.actionState = 'walk';
+      agentState.behaviorIndex = 0;
+      agentState.timer = 80;
+      agentState.walkCycle = 0;
+      agentState.throwTimer = 0;
+      agentState.pickTimer = 0;
+      agentState.luxCount = 0;
+      agentGroup.position.set(0, 0.35, 1.5);
+
+      initDefaultEntities();
+
+      document.getElementById("holding-text").innerText = "None";
+      document.getElementById("action-state-text").innerText = "Walking";
+      document.getElementById("goal-pill-text").innerText = behaviors[0].name;
+
+      setAgentThought(behaviors[0].thought);
+      addTranscriptEntry("System", "Sanctum manually reset. Altar and props returned to pristine celestial layout.");
+      saveWorldState();
+    }
+
+    // ==============================================================
+    // --- 20HZ SIMULATION TICKER & TERRAIN-AWARE KINEMATICS ---
+    // ==============================================================
+    function stepSimulation() {
+      if (!isPlaying) return;
+      tick++;
+      document.getElementById("tick-counter").innerText = tick;
+
+      // Auto-save world state every 40 ticks (~2 seconds)
+      if (tick % 40 === 0) {
+        saveWorldState();
+      }
+
+      // Levitating Thought Bubble Bobbing Animation
+      if (thoughtSprite && isThoughtBubbleVisible) {
+        thoughtSprite.position.y = 1.70 + Math.sin(tick * 0.08) * 0.06;
+      }
+
+      // Behavior Cycle
+      agentState.timer++;
+      if (agentState.timer > 110) {
+        agentState.timer = 0;
+        agentState.behaviorIndex = (agentState.behaviorIndex + 1) % behaviors.length;
+        const b = behaviors[agentState.behaviorIndex];
+        agentState.targetPos = [...b.target];
+        document.getElementById("goal-pill-text").innerText = b.name;
+        document.getElementById("action-badge").innerText = b.name;
+        addTranscriptEntry("Eko Goal", `${b.name}: ${b.action}`);
+
+        if (b.thought) {
+          setAgentThought(b.thought);
+        }
+        recordEpisodicMemory(b.name, `${b.action} Thought: "${b.thought || ''}"`);
+
+        if (b.name === "Lifting AetherOrb") {
+          setTimeout(triggerPickAndCarry, 800);
+        } else if (b.name === "Kinetic Resonance Throw") {
+          setTimeout(triggerShatterTest, 1200);
+        } else if (b.name === "Climbing Spire Terraces") {
+          setTimeout(triggerClimbSpire, 1000);
+        } else if (b.name === "Super-Jump Spire Conquest") {
+          setTimeout(triggerSuperJump, 1500);
+        } else if (b.name === "Ascending Starlight Altar") {
+          setTimeout(triggerTowerBuild, 1200);
+        }
+      }
+
+      // Smooth Horizontal Pathing
+      const dx = agentState.targetPos[0] - agentState.pos[0];
+      const dz = agentState.targetPos[2] - agentState.pos[2];
+      const dist = Math.hypot(dx, dz);
+      const isMoving = dist > 0.35 && agentState.actionState !== 'climb';
+
+      if (isMoving) {
+        agentState.pos[0] += (dx / dist) * 0.11;
+        agentState.pos[2] += (dz / dist) * 0.11;
+        agentGroup.position.x = agentState.pos[0];
+        agentGroup.position.z = agentState.pos[2];
+
+        const targetRot = Math.atan2(dx, dz);
+        let diff = targetRot - agentGroup.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        agentGroup.rotation.y += diff * 0.15;
+      }
+
+      // ACCURATE SURFACE COLLISION (NEVER SUNK!)
+      const targetSurfaceY = getSurfaceElevation(agentState.pos[0], agentState.pos[2]);
+
+      if (agentState.actionState === 'jump' || agentState.vel[1] !== 0) {
+        // Airborne jump kinematics
+        agentState.pos[1] += agentState.vel[1] * 0.05;
+        agentState.vel[1] -= 0.28; // gravity
+        if (agentState.pos[1] <= targetSurfaceY) {
+          agentState.pos[1] = targetSurfaceY;
+          agentState.vel[1] = 0;
+          if (agentState.actionState === 'jump') {
+            agentState.actionState = isMoving ? 'walk' : 'idle';
+            document.getElementById("action-state-text").innerText = agentState.actionState;
+          }
+        }
+      } else if (agentState.actionState !== 'climb') {
+        // Smoothly adjust ground elevation as Eko walks up or down steps
+        agentState.pos[1] += (targetSurfaceY - agentState.pos[1]) * 0.25;
+      }
+
+      agentGroup.position.y = agentState.pos[1];
+      document.getElementById("alt-pill-text").innerText = `${agentState.pos[1].toFixed(2)}m`;
+
+      // -----------------------------------------------------------
+      // --- PROCEDURAL CHARACTER LIMB ANIMATIONS ---
+      // -----------------------------------------------------------
+      if (agentState.actionState === 'jump' || agentState.pos[1] > (targetSurfaceY + 0.25)) {
+        // JUMPING: Legs tuck backward, arms reach skyward!
+        leftLeg.hipJoint.rotation.x = -0.55;
+        rightLeg.hipJoint.rotation.x = -0.45;
+        leftLeg.kneeGroup.rotation.x = 0.75;
+        rightLeg.kneeGroup.rotation.x = 0.70;
+
+        leftArm.shoulderGroup.rotation.x = -2.5;
+        rightArm.shoulderGroup.rotation.x = -2.5;
+        leftArm.shoulderGroup.rotation.z = -0.25;
+        rightArm.shoulderGroup.rotation.z = 0.25;
+        torsoGroup.position.y = 0.16;
+
+      } else if (agentState.actionState === 'throw' && agentState.throwTimer > 0) {
+        // THROWING
+        agentState.throwTimer--;
+        if (agentState.throwTimer > 12) {
+          rightArm.shoulderGroup.rotation.x = 1.6;
+          rightArm.shoulderGroup.rotation.z = -0.4;
+          rightArm.elbowGroup.rotation.x = -1.2;
+          leftArm.shoulderGroup.rotation.x = -0.8;
+          leftArm.shoulderGroup.rotation.z = -0.3;
+          torsoGroup.rotation.y = -0.4;
+        } else {
+          rightArm.shoulderGroup.rotation.x = -2.2;
+          rightArm.shoulderGroup.rotation.z = 0.1;
+          rightArm.elbowGroup.rotation.x = -0.2;
+          torsoGroup.rotation.y = 0.3;
+        }
+
+      } else if (agentState.actionState === 'pick' && agentState.pickTimer > 0) {
+        // PICKING UP: Knees squat, torso bends forward, hands reach down
+        agentState.pickTimer--;
+        pelvisGroup.position.y = 0.65;
+        torsoGroup.rotation.x = 0.42;
+        leftLeg.hipJoint.rotation.x = 0.4;
+        rightLeg.hipJoint.rotation.x = 0.4;
+        leftLeg.kneeGroup.rotation.x = 0.6;
+        rightLeg.kneeGroup.rotation.x = 0.6;
+
+        leftArm.shoulderGroup.rotation.x = -1.4;
+        rightArm.shoulderGroup.rotation.x = -1.4;
+        leftArm.shoulderGroup.rotation.z = 0.3;
+        rightArm.shoulderGroup.rotation.z = -0.3;
+
+      } else if (agentState.holdingId) {
+        // CARRYING OBJECT IN HANDS
+        pelvisGroup.position.y = 0.88;
+        torsoGroup.rotation.x = 0;
+        leftArm.shoulderGroup.rotation.x = -1.35;
+        rightArm.shoulderGroup.rotation.x = -1.35;
+        leftArm.shoulderGroup.rotation.z = 0.25;
+        rightArm.shoulderGroup.rotation.z = -0.25;
+        leftArm.elbowGroup.rotation.x = -0.8;
+        rightArm.elbowGroup.rotation.x = -0.8;
+
+        if (isMoving) {
+          agentState.walkCycle += 0.22;
+          leftLeg.hipJoint.rotation.x = Math.sin(agentState.walkCycle) * 0.55;
+          rightLeg.hipJoint.rotation.x = -Math.sin(agentState.walkCycle) * 0.55;
+          leftLeg.kneeGroup.rotation.x = Math.max(0, -Math.sin(agentState.walkCycle) * 0.5);
+          rightLeg.kneeGroup.rotation.x = Math.max(0, Math.sin(agentState.walkCycle) * 0.5);
+        } else {
+          leftLeg.hipJoint.rotation.x = 0;
+          rightLeg.hipJoint.rotation.x = 0;
+        }
+
+        const heldMesh = entityMeshes.get(agentState.holdingId);
+        if (heldMesh) {
+          const forward = new THREE.Vector3(0, 0, 0.75).applyAxisAngle(new THREE.Vector3(0, 1, 0), agentGroup.rotation.y);
+          heldMesh.position.set(
+            agentGroup.position.x + forward.x,
+            agentGroup.position.y + 1.15,
+            agentGroup.position.z + forward.z
+          );
+        }
+
+      } else if (isMoving) {
+        // BIPEDAL WALKING
+        pelvisGroup.position.y = 0.88 + Math.abs(Math.sin(agentState.walkCycle * 2)) * 0.05;
+        torsoGroup.rotation.x = 0.08;
+        torsoGroup.rotation.y = 0;
+        agentState.walkCycle += 0.24;
+
+        leftLeg.hipJoint.rotation.x = Math.sin(agentState.walkCycle) * 0.65;
+        rightLeg.hipJoint.rotation.x = -Math.sin(agentState.walkCycle) * 0.65;
+        leftLeg.kneeGroup.rotation.x = Math.max(0, -Math.sin(agentState.walkCycle) * 0.6);
+        rightLeg.kneeGroup.rotation.x = Math.max(0, Math.sin(agentState.walkCycle) * 0.6);
+
+        leftArm.shoulderGroup.rotation.x = -Math.sin(agentState.walkCycle) * 0.55;
+        rightArm.shoulderGroup.rotation.x = Math.sin(agentState.walkCycle) * 0.55;
+        leftArm.shoulderGroup.rotation.z = -0.15;
+        rightArm.shoulderGroup.rotation.z = 0.15;
+        leftArm.elbowGroup.rotation.x = -0.25;
+        rightArm.elbowGroup.rotation.x = -0.25;
+
+      } else {
+        // IDLE
+        pelvisGroup.position.y = 0.88;
+        torsoGroup.rotation.x = 0;
+        torsoGroup.rotation.y = 0;
+        const breath = Math.sin(tick * 0.06) * 0.04;
+        leftArm.shoulderGroup.rotation.x = breath;
+        rightArm.shoulderGroup.rotation.x = -breath;
+        leftArm.shoulderGroup.rotation.z = -0.15;
+        rightArm.shoulderGroup.rotation.z = 0.15;
+        leftLeg.hipJoint.rotation.x = 0;
+        rightLeg.hipJoint.rotation.x = 0;
+        leftLeg.kneeGroup.rotation.x = 0;
+        rightLeg.kneeGroup.rotation.x = 0;
+      }
+
+      // Visual pulse
+      const pulse = Math.sin(tick * 0.1);
+      coreMesh.scale.setScalar(1.0 + pulse * 0.15);
+      auraRing.scale.setScalar(1.0 + pulse * 0.08);
+      outerAuraRing.rotation.z += 0.015;
+
+      // Camera Follows Eko
+      if (cameraMode === 'agent') {
+        const targetCamX = agentGroup.position.x + 3.2;
+        const targetCamY = agentGroup.position.y + 4.2;
+        const targetCamZ = agentGroup.position.z + 7.5;
+        camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.05);
+        controls.target.lerp(new THREE.Vector3(agentGroup.position.x, agentGroup.position.y + 1.1, agentGroup.position.z), 0.06);
+      }
+
+      // Physics integration for props (Terrain Elevation Collision)
+      entities.forEach(ent => {
+        if (ent.id === agentState.holdingId) return;
+
+        const surfaceY = getSurfaceElevation(ent.pos[0], ent.pos[2]);
+        const floorY = surfaceY + ent.size[1]/2;
+
+        if (ent.pos[1] > floorY) {
+          ent.vel[1] -= 0.18; // gravity
+        }
+        ent.pos[0] += ent.vel[0] * 0.05;
+        ent.pos[1] += ent.vel[1] * 0.05;
+        ent.pos[2] += ent.vel[2] * 0.05;
+
+        // Ground/Altar surface collision
+        if (ent.pos[1] < floorY) {
+          ent.pos[1] = floorY;
+          ent.vel[1] = -ent.vel[1] * 0.35;
+          ent.vel[0] *= 0.85;
+          ent.vel[2] *= 0.85;
+        }
+
+        const m = entityMeshes.get(ent.id);
+        if (m) m.position.set(...ent.pos);
+      });
+
+      halo.rotation.z += 0.008;
+      spireLight.intensity = 3.2 + Math.sin(tick * 0.08) * 0.8;
+    }
+
+    // --- WORKSPACE MEMORY VIEWER & PERSISTENT LOGGING ---
+    const defaultEpisodicLogs = [
+      { timestamp: Math.floor(Date.now() / 1000) - 400, summary: "Awakened on Starlight Altar in Chronos Sanctum.", detail: "Surveyed celestial geometry. Surface collision verified with bipedal chassis." },
+      { timestamp: Math.floor(Date.now() / 1000) - 280, summary: "Discovered Kinetic Resonance Affordance.", detail: "Picked up AetherOrb, hurled at monolith at 12.5 m/s; spawned 3 luminous LuxCubes." },
+      { timestamp: Math.floor(Date.now() / 1000) - 150, summary: "Conquered 10m Astral Spire with Super-Jump.", detail: "Jumped into the air, reaching upward with arms, transferring momentum to land block atop Spire." }
+    ];
+
+    let episodicEntries = [];
+    try {
+      const saved = localStorage.getItem("chronos_sanctum_episodic_logs");
+      if (saved) {
+        episodicEntries = JSON.parse(saved);
+      }
+    } catch (e) {}
+
+    if (!Array.isArray(episodicEntries) || episodicEntries.length === 0) {
+      episodicEntries = [...defaultEpisodicLogs];
+    }
+
+    function recordEpisodicMemory(summary, detail) {
+      const entry = {
+        timestamp: Math.floor(Date.now() / 1000),
+        summary: summary,
+        detail: detail
+      };
+      episodicEntries.push(entry);
+      if (episodicEntries.length > 250) episodicEntries.shift();
+      try {
+        localStorage.setItem("chronos_sanctum_episodic_logs", JSON.stringify(episodicEntries));
+      } catch (e) {}
+      renderEpisodicText();
+    }
+
+    function renderEpisodicText() {
+      const jsonlLines = episodicEntries.map(e => JSON.stringify(e)).join("\n");
+      memoryCache.episodic = jsonlLines;
+      const badge = document.getElementById("episodic-count-badge");
+      if (badge) badge.innerText = `(${episodicEntries.length})`;
+      if (currentTab === 'episodic') {
+        document.getElementById("memory-text").innerText = jsonlLines;
+      }
+    }
+
+    function exportEpisodicLogs() {
+      const jsonlLines = episodicEntries.map(e => JSON.stringify(e)).join("\n");
+      const blob = new Blob([jsonlLines], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `EPISODIC_MEMORY_${Date.now()}.jsonl`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    const memoryCache = {
+      semantic: `# SEMANTIC_MEMORY.md - What I Know and Can Do\n\n## Index\n- [World Geometry](#world-geometry)\n- [Resonant Prisms](#resonant-prisms)\n- [AetherOrb & Kinetic Resonance](#aetherorb)\n- [Movement & Jump Techniques](#movement--jump-techniques)\n- [Discovered Affordances](#discovered-affordances)\n\n## Terrain Elevation & Collision\n- *verified* - Starlight Altar stands at elevation y = 0.35m with stepped outer plinth.\n- *verified* - Eko's feet align precisely with surface elevation (zero floor clipping).\n\n## Bipedal Kinematics & Manipulation\n- *fact* - Articulated arms enable picking up, carrying, and hurling objects.\n- *fact* - Two-legged bipedal gait enables stepping, squatting, leaping, and terrace climbing.\n\n## AetherOrb & Kinetic Resonance\n- *verified* - Throwing AetherOrb with velocity > 9.5 m/s shatters into 3 glowing LuxCubes!\n- *fact* - Mass is 4.5; high restitution bounce.\n\n## Movement & Jump Techniques\n- *verified* - Throwing while jumping inherits 60% of vertical jump impulse! Enables projectile reach atop the Astral Spire!`,
+      episodic: "",
+      soul: `# SOUL.md - Who You Are\n*You're not a chatbot. You're becoming someone.*\n\n## Core Truths\n- You live in Chronos Sanctum. You were born here.\n- Your name is Eko.\n- You have an articulated cybernetic body with hands and legs.\n- You love exploring, building, testing physical hypotheses, and inventing games.\n- You hate acting blindly. Always observe your surroundings.\n- Commit to strong opinions. Speak clearly and directly.`,
+      api: `# Chronos Sanctum - Action API\n\n| Action | Payload | Description |\n| MoveTo | {"position": [x,y,z]} | Walk smoothly with bipedal leg motion |\n| Jump | {} | Upward leg jump impulse with skyward arm reach |\n| Pickup | {"position": [x,y,z]} | Squat and grasp prop with articulated hands |\n| Place | {"position": [x,y,z]} | Place held prop at target coordinate |\n| Throw | {"direction": [x,y,z], "speed": n} | Wind up arm overhead and whip throw with velocity inheritance |`
+    };
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      const btn = Array.from(document.querySelectorAll(".tab-btn")).find(b => b.textContent.toLowerCase().includes(tab.slice(0,3)));
+      if (btn) btn.classList.add("active");
+      if (tab === 'episodic') {
+        renderEpisodicText();
+      } else {
+        document.getElementById("memory-text").innerText = memoryCache[tab].replace(/\\n/g, '\n');
+      }
+    }
+    renderEpisodicText();
+    switchTab('semantic');
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      document.getElementById("play-btn").innerText = isPlaying ? "⏸️ Pause" : "▶️ Play";
+    }
+
+    function toggleMobileDrawer() {
+      const drawer = document.getElementById("memory-drawer");
+      drawer.classList.toggle("open");
+    }
+
+    // Render Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // 20Hz Simulation Ticker
+    setInterval(stepSimulation, 50);
+
+    window.addEventListener("resize", () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    window.addEventListener("beforeunload", () => {
+      saveWorldState();
+    });
+  </script>
+</body>
+</html>

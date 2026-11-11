@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+current_obs.json
+.DS_Store
+*.log

@@ -1,0 +1,3384 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Terra Haven â€” Autonomous Machine Playing by the Lake (Liquid AI LFM3)</title>
+  <!-- Three.js and OrbitControls via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel-bg: rgba(15, 23, 42, 0.92);
+      --border: rgba(34, 197, 94, 0.35);
+      --accent-cyan: #38bdf8;
+      --accent-green: #22c55e;
+      --accent-gold: #fbbf24;
+      --accent-timber: #b45309;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: rgba(15, 23, 42, 0.92);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .brand-title {
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+      background: linear-gradient(135deg, #4ade80, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .badge {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.4);
+      color: #4ade80;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+    .main-container {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* Floating View Mode Selector */
+    .view-selector {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      display: flex;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 4px;
+      gap: 4px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+    }
+    .view-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .view-btn.active {
+      background: var(--accent-cyan);
+      color: #000;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.5);
+    }
+
+    /* Floating Live Action Pill */
+    .agent-status-pill {
+      position: absolute;
+      top: 58px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+
+    /* Floating Live Thought Banner */
+    .thought-banner {
+      position: absolute;
+      top: 96px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 15;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(251, 191, 36, 0.55);
+      border-radius: 20px;
+      padding: 5px 16px;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #f8fafc;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.55);
+      max-width: 90vw;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      transition: all 0.3s ease;
+    }
+    .thought-icon { font-size: 13px; }
+    .thought-label { color: var(--accent-gold); font-weight: 700; white-space: nowrap; }
+    .thought-content { color: #f1f5f9; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 480px; }
+
+    /* Desktop Panels */
+    .hud-panel {
+      position: absolute;
+      top: 15px;
+      bottom: 65px;
+      width: 320px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .hud-left { left: 15px; }
+    .hud-right { right: 15px; width: 360px; }
+    .panel-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.02);
+    }
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 8px 6px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      color: var(--accent-cyan);
+      border-bottom: 2px solid var(--accent-cyan);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .transcript-entry {
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .transcript-role {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 800;
+      color: var(--accent-gold);
+      margin-bottom: 2px;
+    }
+    .transcript-text {
+      color: var(--text);
+      font-size: 11px;
+    }
+    pre {
+      font-family: monospace;
+      font-size: 11px;
+      white-space: pre-wrap;
+      color: #cbd5e1;
+    }
+
+    /* Mobile Drawer Toggle */
+    .mobile-drawer-toggle {
+      display: none;
+      position: absolute;
+      bottom: 64px;
+      right: 15px;
+      z-index: 25;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      color: var(--accent-cyan);
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+
+    /* Bottom Control Bar */
+    .bottom-bar {
+      height: 54px;
+      background: rgba(10, 14, 20, 0.96);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 10px;
+      z-index: 20;
+      backdrop-filter: blur(10px);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .bottom-bar::-webkit-scrollbar { display: none; }
+    .btn {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      border-radius: 20px;
+      padding: 7px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+    .btn-gold {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+      background: rgba(251, 191, 36, 0.15);
+    }
+    .btn-gold:hover {
+      background: var(--accent-gold);
+      color: #000;
+    }
+    .btn-green {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+      background: rgba(52, 211, 153, 0.15);
+    }
+    .btn-green:hover {
+      background: var(--accent-green);
+      color: #000;
+    }
+    .btn-secondary {
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text-dim);
+      background: rgba(255,255,255,0.06);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      display: inline-block;
+      box-shadow: 0 0 6px #10b981;
+    }
+
+    /* ===== CINEMA MODE â€” HUD hidden by default ===== */
+    body.cinema header          { transform: translateY(-100%); transition: transform 0.3s ease; }
+    body.cinema .bottom-bar     { transform: translateY(100%);  transition: transform 0.3s ease; }
+    body.cinema .hud-panel      { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    body.cinema .view-selector  { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    body.cinema .agent-status-pill { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    body.cinema .thought-banner { opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
+    /* smooth show when NOT in cinema */
+    header, .bottom-bar, .hud-panel, .view-selector, .agent-status-pill, .thought-banner {
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+
+    /* Tiny floating HUD toggle always visible */
+    #hud-toggle {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+      z-index: 999;
+      background: rgba(15,23,42,0.75);
+      border: 1px solid rgba(56,189,248,0.4);
+      color: #38bdf8;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+      transition: background 0.2s;
+    }
+    #hud-toggle:hover { background: rgba(56,189,248,0.25); }
+
+    /* Mobile Responsive Layout */
+    @media (max-width: 860px) {
+      .hud-left { display: none; }
+      .mobile-drawer-toggle { display: block; }
+      .hud-right {
+        left: 10px;
+        right: 10px;
+        width: calc(100vw - 20px);
+        bottom: 60px;
+        top: auto;
+        height: 280px;
+        transform: translateY(320px);
+        z-index: 30;
+      }
+      .hud-right.open {
+        transform: translateY(0);
+      }
+      .view-selector { top: 8px; }
+      .agent-status-pill { top: 46px; font-size: 10px; padding: 3px 10px; }
+      .thought-banner { top: 78px; font-size: 10px; padding: 4px 10px; }
+      .thought-content { max-width: 220px; }
+      .brand-title { font-size: 12px; }
+      .header-stats { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-title">TERRA HAVEN</div>
+      <span class="badge">Liquid AI LFM3-1.7B</span>
+      <span class="badge" style="border-color: var(--accent-green); color: var(--accent-green);">Expanded 320m Sanctuary</span>
+    </div>
+    <div class="header-stats" style="font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 10px;">
+      <span><span class="status-dot"></span>Simulation: <strong id="status-text" style="color: #fff;">Autonomous Play</strong></span>
+      <span>Tick: <strong id="tick-counter" style="color: var(--accent-cyan);">0</strong></span>
+      <span>â¤ï¸ HP: <strong id="health-text" style="color: #10b981;">100%</strong></span>
+      <span>ðŸ« Hunger: <strong id="hunger-text" style="color: #f87171;">85%</strong></span>
+      <span>âš¡ Energy: <strong id="energy-text" style="color: #34d399;">95%</strong></span>
+      <span id="warmth-pill" class="badge" style="border-color: #f97316; color: #f97316; background: rgba(249,115,22,0.15); display: none;">ðŸ”¥ Cozy Hearth Warmth</span>
+      <span id="hazard-pill" class="badge" style="border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.2); display: none;">âš ï¸ Critical Hazard</span>
+      <span>Holding: <strong id="holding-text" style="color: var(--accent-gold);">None</strong></span>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div id="canvas-container"></div>
+
+    <!-- Quick Camera Mode Buttons -->
+    <div class="view-selector">
+      <button class="view-btn active" id="cam-agent-btn" onclick="setCamera('agent')">ðŸŽ¯ Follow Eko</button>
+      <button class="view-btn" id="cam-lake-btn" onclick="setCamera('lake')">ðŸŒŠ Lake & Pier</button>
+      <button class="view-btn" id="cam-ocean-btn" onclick="setCamera('ocean')">ðŸ–ï¸ Ocean Coast</button>
+      <button class="view-btn" id="cam-peak-btn" onclick="setCamera('peak')">ðŸ§— Eagle's Peak</button>
+      <button class="view-btn" id="cam-wildlife-btn" onclick="setCamera('wildlife')">ðŸ¦Œ Track Wildlife</button>
+      <button class="view-btn" id="cam-overview-btn" onclick="setCamera('overview')">ðŸŒ² Expanse Overview</button>
+      <button class="view-btn" id="bubble-toggle-btn" onclick="toggleThoughtBubble()" style="color: var(--accent-gold);">ðŸ’­ Bubble: ON</button>
+    </div>
+
+    <!-- Floating Live Agent Action Pill -->
+    <div class="agent-status-pill">
+      <span class="status-dot"></span>
+      <span>Eko Goal: <strong id="goal-pill-text" style="color: var(--accent-cyan);">Surveying Meadow</strong></span>
+      <span style="color: rgba(255,255,255,0.4);">|</span>
+      <span>Action: <strong id="action-state-text" style="color: var(--accent-gold);">Idle</strong></span>
+      <span style="color: rgba(255,255,255,0.4);">|</span>
+      <span>Altitude: <strong id="alt-pill-text" style="color: var(--accent-green);">0.25m</strong></span>
+      <span style="color: rgba(255,255,255,0.4);">|</span>
+      <span>Vitals: <strong id="vitality-pill-text" style="color: #38bdf8;">Healthy</strong></span>
+    </div>
+
+    <!-- Floating Live Thought Banner -->
+    <div class="thought-banner" id="thought-banner">
+      <span class="thought-icon">ðŸ’­</span>
+      <span class="thought-label">Eko's Mind:</span>
+      <span id="thought-banner-text" class="thought-content">"The morning sun warms the meadow. The lake is calm and blue... let's explore the shoreline."</span>
+    </div>
+
+    <!-- Left HUD: Agent Mind & Action Transcript -->
+    <div class="hud-panel hud-left">
+      <div class="panel-header">
+        <span>Agent Stream (Eko)</span>
+        <span id="action-badge" class="badge" style="font-size: 10px;">Active</span>
+      </div>
+      <div class="panel-body" id="transcript-container">
+        <div class="transcript-entry">
+          <div class="transcript-role">System Initialization</div>
+          <div class="transcript-text">Welcome to Terra Haven expanded sanctuary. 320m world, southern ocean, river delta, campfire warmth, hunger and procedural wildlife active.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right HUD: Dynamic Memory Viewer -->
+    <div class="hud-panel hud-right" id="memory-drawer">
+      <div class="panel-header">
+        <span>Agent Cognitive Memory</span>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 10px;" onclick="exportEpisodicLogs()" title="Download EPISODIC_MEMORY.jsonl">ðŸ“¥ Export Log</button>
+          <button onclick="toggleMobileDrawer()" style="background: none; border: none; color: var(--text-dim); font-size: 14px; cursor: pointer;">âœ•</button>
+        </div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('semantic')">SEMANTIC</button>
+        <button class="tab-btn" onclick="switchTab('episodic')">EPISODIC <span id="episodic-count-badge" style="color: var(--accent-cyan); font-size: 9px;"></span></button>
+        <button class="tab-btn" onclick="switchTab('soul')">SOUL</button>
+        <button class="tab-btn" onclick="switchTab('api')">API</button>
+      </div>
+      <div class="panel-body">
+        <pre id="memory-text"></pre>
+      </div>
+    </div>
+
+    <!-- Mobile Button to Open Drawer -->
+    <button class="mobile-drawer-toggle" id="drawer-toggle-btn" onclick="toggleMobileDrawer()">
+      ðŸ§  Agent Memory & Thoughts
+    </button>
+  </div>
+
+  <!-- Floating HUD toggle (press H) -->
+  <button id="hud-toggle" title="Toggle HUD (H)" onclick="toggleCinema()">👁</button>
+
+
+  <!-- Bottom Navigation & Controls -->
+  <div class="bottom-bar">
+    <button class="btn btn-green" onclick="triggerForageAndEat()">ðŸ« Forage & Eat Berries</button>
+    <button class="btn btn-gold" onclick="triggerRestByFire()">ðŸ”¥ Rest by Campfire</button>
+    <button class="btn" onclick="triggerExploreOcean()">ðŸ–ï¸ Walk to Ocean Shore</button>
+    <button class="btn btn-secondary" style="border-color: #38bdf8; color: #38bdf8;" onclick="triggerSwimJumpTest()">ðŸŒŠ Jump into Deep Lake</button>
+    <button class="btn btn-secondary" style="border-color: #f97316; color: #fb923c;" onclick="triggerFireStepTest()">ðŸ”¥ Step into Fire Pit</button>
+    <button class="btn btn-green" onclick="triggerSkipStone()">ðŸŒŠ Skip Stone on Lake</button>
+    <button class="btn btn-gold" onclick="triggerShatterTest()">ðŸ’¥ Shatter River Geode</button>
+    <button class="btn" onclick="triggerWalkToPier()">ðŸš¶ Walk to Wooden Pier</button>
+    <button class="btn btn-secondary" onclick="triggerClimbPeak()">ðŸ§— Climb Eagle's Peak (10m)</button>
+    <button class="btn btn-secondary" onclick="triggerTowerBuild()">ðŸªµ Stack Timber Crates</button>
+    <button class="btn btn-secondary" onclick="triggerPickAndCarry()">ðŸ¤² Pick Up Prop</button>
+    <button class="btn btn-secondary" onclick="resetWorld()">ðŸ”„ Reset Haven</button>
+    <div style="flex: 1;"></div>
+    <button class="btn btn-secondary" id="play-btn" onclick="togglePlay()">â¸ï¸ Pause</button>
+  </div>
+
+  <script>
+    // --- THREE.JS SCENE SETUP (TERRA HAVEN LAKESIDE SANCTUARY) ---
+    const container = document.getElementById("canvas-container");
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x60a5fa); // Crisp daytime sunny blue sky
+    scene.fog = new THREE.FogExp2(0xcfe8fc, 0.007); // Gentle lakeside atmospheric haze
+
+    const camera = new THREE.PerspectiveCamera(52, container.clientWidth / container.clientHeight, 0.1, 1000);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+
+    // --- DAYLIGHT ENVIRONMENT LIGHTING ---
+    const ambientLight = new THREE.AmbientLight(0xdbeafe, 1.25);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x166534, 0.55); // Sky blue to lush grass green bounce
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 2.1); // Warm golden sunlight
+    sunLight.position.set(40, 70, 30);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 10;
+    sunLight.shadow.camera.far = 160;
+    sunLight.shadow.camera.left = -50;
+    sunLight.shadow.camera.right = 50;
+    sunLight.shadow.camera.top = 50;
+    sunLight.shadow.camera.bottom = -50;
+    scene.add(sunLight);
+
+    // Warm Campfire Hearth Light (at center)
+    const campfireLight = new THREE.PointLight(0xf97316, 2.6, 18);
+    campfireLight.position.set(0, 0.8, 0);
+    scene.add(campfireLight);
+
+    // Mountain Summit Beacon (at Eagle's Peak 10m crown)
+    const peakBeacon = new THREE.PointLight(0xfbbf24, 2.5, 25);
+    peakBeacon.position.set(-16, 11.5, 29);
+    scene.add(peakBeacon);
+
+    // --- PROCEDURAL DRIFTING CUMULUS CLOUDS ---
+    const cloudsGroup = new THREE.Group();
+    const cloudMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.95,
+      metalness: 0.05,
+      transparent: true,
+      opacity: 0.88
+    });
+    for (let c = 0; c < 15; c++) {
+      const singleCloud = new THREE.Group();
+      const puffCount = 5 + Math.floor(Math.random() * 4);
+      for (let p = 0; p < puffCount; p++) {
+        const puffGeo = new THREE.SphereGeometry(2.8 + Math.random() * 2.2, 10, 10);
+        const puff = new THREE.Mesh(puffGeo, cloudMat);
+        puff.position.set((p - puffCount / 2) * 2.4, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2.2);
+        singleCloud.add(puff);
+      }
+      singleCloud.position.set((Math.random() - 0.5) * 220, 42 + Math.random() * 18, (Math.random() - 0.5) * 220);
+      cloudsGroup.add(singleCloud);
+    }
+    scene.add(cloudsGroup);
+
+    // ==============================================================
+    // ==============================================================
+    // --- ACCURATE MULTI-TIER EARTHLY ELEVATION FUNCTION (320M WORLD) ---
+    // ==============================================================
+    function getSurfaceElevation(x, z) {
+      // 1. Central Stone Campfire Hearth
+      const dHearth = Math.hypot(x, z);
+      if (dHearth <= 3.8) {
+        return 0.25; // Raised stone hearth dais
+      } else if (dHearth <= 4.6) {
+        return 0.12; // Outer cobblestone ring
+      }
+
+      // 2. Wooden Pier extending into the lake (x from 0.8 to 11.2, |z - (-10)| <= 1.4)
+      if (x >= 0.8 && x <= 11.2 && Math.abs(z - (-10)) <= 1.4) {
+        return 0.35; // Top deck of wooden cedar pier
+      }
+
+      // 3. River Wooden Footbridge (x in [16.0, 20.0], z in [-25.0, -15.0])
+      if (Math.abs(x - 18.0) <= 2.0 && Math.abs(z - (-20.0)) <= 5.5) {
+        return 0.45; // Wooden bridge deck surface
+      }
+
+      // 4. River Stepping Stones in lake shallows
+      const stones = [
+        { x: 3.5, z: -14.5, r: 0.9 },
+        { x: 5.5, z: -15.5, r: 0.9 },
+        { x: 7.5, z: -15.0, r: 0.9 },
+        { x: 9.5, z: -13.5, r: 0.9 }
+      ];
+      for (const s of stones) {
+        if (Math.hypot(x - s.x, z - s.z) <= s.r) {
+          return 0.15; // Stepping stone surface
+        }
+      }
+
+      // 5. Lake Water Basin: ellipse ((x-14)/17)^2 + ((z+10)/12)^2 <= 1.0
+      const lakeNorm = Math.pow((x - 14) / 17, 2) + Math.pow((z - (-10)) / 12, 2);
+      if (lakeNorm <= 1.0) {
+        return -0.15; // Lake water surface
+      }
+
+      // 6. River Channels
+      // Upper Mountain Stream (x in [-16, -8], z in [21, 51])
+      if (x >= -16.0 && x <= -8.0 && z >= 21.0 && z <= 51.0) {
+        return -0.15; // Upper river surface
+      }
+      // Lower River Delta Outlet (x in [14, 22], z in [-35, -12])
+      if (x >= 14.0 && x <= 22.0 && z >= -35.0 && z <= -12.0) {
+        return -0.20; // River delta outlet surface
+      }
+
+      // 7. Southern Ocean Coast & Dunes (z <= -30)
+      if (z <= -38.0) {
+        return -0.30; // Vast Southern Ocean water surface
+      }
+      if (z <= -30.0) {
+        return 0.05; // Ocean beach dunes / golden sand
+      }
+
+      // 8. Eagle's Peak Mountain Terraces
+      if (Math.abs(x - (-16)) < 2.8 && Math.abs(z - 22) < 2.2) {
+        return 2.5; // Lower Ridge Terrace 1
+      }
+      if (Math.abs(x - (-16)) < 2.8 && Math.abs(z - 25) < 2.2) {
+        return 5.0; // Middle Ridge Terrace 2
+      }
+      if (Math.abs(x - (-16)) < 2.8 && Math.abs(z - 29) < 2.6) {
+        return 10.4; // Eagle's Peak Summit Lookout Deck (10m)
+      }
+
+      // 9. Natural meadow floor across expanded 320m world
+      return 0.0;
+    }
+
+    // --- TERRA HAVEN EARTHLY GEOMETRY (320M EXPANSE) ---
+    // 1. Lush Green Grassy Meadow Foundation (320m diameter)
+    const groundGeo = new THREE.CylinderGeometry(160, 155, 4, 64);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x16a34a, // Vibrant lush grass green
+      roughness: 0.88,
+      metalness: 0.05
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.position.y = -2.0;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Meadow Path Ring
+    const pathRingGeo = new THREE.RingGeometry(5.0, 5.7, 48);
+    const pathRingMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.92, side: THREE.DoubleSide });
+    const pathRing = new THREE.Mesh(pathRingGeo, pathRingMat);
+    pathRing.rotation.x = -Math.PI / 2;
+    pathRing.position.y = 0.015;
+    scene.add(pathRing);
+
+    // 2. Organic Shimmering Blue Lake
+    const waterGeo = new THREE.CircleGeometry(1.0, 48);
+    const waterMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7, // Shimmering lake blue
+      roughness: 0.12,
+      metalness: 0.58,
+      transparent: true,
+      opacity: 0.84
+    });
+    const waterMesh = new THREE.Mesh(waterGeo, waterMat);
+    waterMesh.rotation.x = -Math.PI / 2;
+    waterMesh.scale.set(17, 12, 1);
+    waterMesh.position.set(14, -0.15, -10);
+    waterMesh.receiveShadow = true;
+    scene.add(waterMesh);
+
+    // Golden Sandy Shoreline
+    const sandGeo = new THREE.RingGeometry(0.95, 1.14, 48);
+    const sandMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.95, side: THREE.DoubleSide });
+    const sandMesh = new THREE.Mesh(sandGeo, sandMat);
+    sandMesh.rotation.x = -Math.PI / 2;
+    sandMesh.scale.set(17, 12, 1);
+    sandMesh.position.set(14, -0.14, -10);
+    scene.add(sandMesh);
+
+    // 3. Wooden Cedar Pier / Dock
+    const pierGroup = new THREE.Group();
+    const woodPlankMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.72, metalness: 0.1 });
+    const woodPostMat = new THREE.MeshStandardMaterial({ color: 0x5b340b, roughness: 0.85 });
+
+    // Main Pier Deck
+    const pierDeck = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.16, 2.6), woodPlankMat);
+    pierDeck.position.set(6.0, 0.28, -10.0);
+    pierDeck.castShadow = true;
+    pierDeck.receiveShadow = true;
+    pierGroup.add(pierDeck);
+
+    // Pier Stilts & Posts
+    const postPositions = [
+      [1.5, -0.6, -11.1], [1.5, -0.6, -8.9],
+      [5.0, -0.6, -11.1], [5.0, -0.6, -8.9],
+      [8.5, -0.6, -11.1], [8.5, -0.6, -8.9],
+      [11.0, -0.6, -11.1], [11.0, -0.6, -8.9]
+    ];
+    postPositions.forEach(p => {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.6, 8), woodPostMat);
+      post.position.set(...p);
+      post.castShadow = true;
+      pierGroup.add(post);
+    });
+
+    // End Mooring Bollards
+    const b1 = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 10), woodPostMat);
+    b1.position.set(11.1, 0.62, -11.0);
+    b1.castShadow = true;
+    pierGroup.add(b1);
+    const b2 = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.65, 10), woodPostMat);
+    b2.position.set(11.1, 0.62, -9.0);
+    b2.castShadow = true;
+    pierGroup.add(b2);
+    scene.add(pierGroup);
+
+    // 4. River Stepping Stones across Shallows
+    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.82 });
+    const steppingStones = [
+      { x: 3.5, z: -14.5, r: 0.9 },
+      { x: 5.5, z: -15.5, r: 0.9 },
+      { x: 7.5, z: -15.0, r: 0.9 },
+      { x: 9.5, z: -13.5, r: 0.9 }
+    ];
+    steppingStones.forEach(s => {
+      const sm = new THREE.Mesh(new THREE.CylinderGeometry(s.r, s.r * 1.1, 0.35, 14), stoneMat);
+      sm.position.set(s.x, 0.05, s.z);
+      sm.castShadow = true;
+      sm.receiveShadow = true;
+      scene.add(sm);
+    });
+
+    // 5. Central Stone Campfire Hearth, Dynamic Fire & Rising Embers
+    const hearthGroup = new THREE.Group();
+    const hearthBase = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.7, 0.14, 32),
+                                      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 }));
+    hearthBase.position.y = 0.07;
+    hearthBase.receiveShadow = true;
+    hearthGroup.add(hearthBase);
+
+    const hearthDais = new THREE.Mesh(new THREE.CylinderGeometry(3.8, 4.0, 0.18, 32),
+                                      new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 }));
+    hearthDais.position.y = 0.21;
+    hearthDais.receiveShadow = true;
+    hearthGroup.add(hearthDais);
+
+    const firePitRim = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.22, 12, 24),
+                                      new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9 }));
+    firePitRim.rotation.x = Math.PI / 2;
+    firePitRim.position.y = 0.32;
+    hearthGroup.add(firePitRim);
+
+    const embers = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.12, 16),
+                                  new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xea580c, emissiveIntensity: 1.2, roughness: 0.4 }));
+    embers.position.y = 0.30;
+    hearthGroup.add(embers);
+
+    // Crossed Cedar Firewood Logs in Pit
+    const firewoodMat = new THREE.MeshStandardMaterial({ color: 0x5c2e0b, roughness: 0.95 });
+    for (let l = 0; l < 4; l++) {
+      const log = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, 1.4, 8), firewoodMat);
+      log.rotation.z = Math.PI / 2.3;
+      log.rotation.y = (l * Math.PI) / 4;
+      log.position.set(0, 0.38, 0);
+      log.castShadow = true;
+      hearthGroup.add(log);
+    }
+
+    // Dynamic Campfire Flame Cones
+    const flameCones = [];
+    const flameMatOrange = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+    const flameMatGold = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+    const flameMatRed = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    for (let f = 0; f < 7; f++) {
+      const fGeo = new THREE.ConeGeometry(0.24 + Math.random() * 0.16, 0.75 + Math.random() * 0.45, 8);
+      const fMat = f % 3 === 0 ? flameMatGold : (f % 3 === 1 ? flameMatOrange : flameMatRed);
+      const fMesh = new THREE.Mesh(fGeo, fMat);
+      const angle = (f / 7) * Math.PI * 2;
+      const rad = 0.15 + Math.random() * 0.35;
+      fMesh.position.set(Math.cos(angle) * rad, 0.70, Math.sin(angle) * rad);
+      hearthGroup.add(fMesh);
+      flameCones.push({
+        mesh: fMesh,
+        baseScaleY: 0.8 + Math.random() * 0.5,
+        basePosY: 0.70,
+        speed: 0.18 + Math.random() * 0.15,
+        offset: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Rising Ember Particle System
+    const embersParticles = [];
+    const emberMat = new THREE.MeshBasicMaterial({ color: 0xfdba74 });
+    for (let e = 0; e < 24; e++) {
+      const epMesh = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), emberMat);
+      epMesh.position.set((Math.random() - 0.5) * 1.4, 0.4 + Math.random() * 2.2, (Math.random() - 0.5) * 1.4);
+      hearthGroup.add(epMesh);
+      embersParticles.push({
+        mesh: epMesh,
+        vy: 0.025 + Math.random() * 0.035,
+        phase: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Cedar bench log
+    const bench = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 3.2, 10), woodPlankMat);
+    bench.rotation.z = Math.PI / 2;
+    bench.position.set(-2.2, 0.38, 2.0);
+    bench.castShadow = true;
+    hearthGroup.add(bench);
+    scene.add(hearthGroup);
+
+    // --- VAST SOUTHERN OCEAN & SURF (z in [-160, -35]) ---
+    const oceanGroup = new THREE.Group();
+    const oceanGeo = new THREE.PlaneGeometry(320, 130, 48, 24);
+    const oceanMat = new THREE.MeshStandardMaterial({
+      color: 0x0284c7, // Vibrant deep ocean blue
+      roughness: 0.15,
+      metalness: 0.65,
+      transparent: true,
+      opacity: 0.90
+    });
+    const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
+    oceanMesh.rotation.x = -Math.PI / 2;
+    oceanMesh.position.set(0, -0.30, -100);
+    oceanMesh.receiveShadow = true;
+    oceanGroup.add(oceanMesh);
+
+    // Ocean Surf Foam Line
+    const surfGeo = new THREE.PlaneGeometry(320, 4.0);
+    const surfMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.70, side: THREE.DoubleSide });
+    const surfMesh = new THREE.Mesh(surfGeo, surfMat);
+    surfMesh.rotation.x = -Math.PI / 2;
+    surfMesh.position.set(0, -0.27, -37.5);
+    oceanGroup.add(surfMesh);
+
+    // Ocean Sandy Beach Shoreline Dunes (z in [-30, -38])
+    const beachGeo = new THREE.PlaneGeometry(320, 9.0);
+    const beachMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.95 });
+    const beachMesh = new THREE.Mesh(beachGeo, beachMat);
+    beachMesh.rotation.x = -Math.PI / 2;
+    beachMesh.position.set(0, 0.04, -34.0);
+    beachMesh.receiveShadow = true;
+    oceanGroup.add(beachMesh);
+    scene.add(oceanGroup);
+
+    // --- WINDING MOUNTAIN RIVER & DELTA ---
+    const riverMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.18, metalness: 0.5, transparent: true, opacity: 0.85 });
+
+    // 1. River Upper Stream (x = -12, z in [21, 51])
+    const riverUpperMesh = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.2, 30.0), riverMat);
+    riverUpperMesh.position.set(-12.0, -0.15, 36.0);
+    riverUpperMesh.receiveShadow = true;
+    scene.add(riverUpperMesh);
+
+    // 2. River Delta Outlet (x = 18, z in [-35, -12])
+    const riverDeltaMesh = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.2, 26.0), riverMat);
+    riverDeltaMesh.position.set(18.0, -0.20, -24.0);
+    riverDeltaMesh.receiveShadow = true;
+    scene.add(riverDeltaMesh);
+
+    // 3. Wooden River Footbridge at z = -20
+    const bridgeGroup = new THREE.Group();
+    bridgeGroup.position.set(18.0, 0.0, -20.0);
+    const bridgeDeck = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 10.5), woodPlankMat);
+    bridgeDeck.position.y = 0.40;
+    bridgeDeck.castShadow = true;
+    bridgeDeck.receiveShadow = true;
+    bridgeGroup.add(bridgeDeck);
+
+    // Bridge Handrails & Posts
+    [-1.7, 1.7].forEach(rx => {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 10.5), woodPostMat);
+      rail.position.set(rx, 1.05, 0);
+      bridgeGroup.add(rail);
+      for (let pz = -4.5; pz <= 4.5; pz += 2.25) {
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.75, 8), woodPostMat);
+        p.position.set(rx, 0.70, pz);
+        bridgeGroup.add(p);
+      }
+    });
+    scene.add(bridgeGroup);
+
+    // 6. Eagle's Peak 10-Meter Mountain Cliff & Step Terraces
+    const mountainGroup = new THREE.Group();
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.92, metalness: 0.08 });
+    const ledgeMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85 });
+
+    // Main 10-meter Granite Cliff Mass
+    const cliffBody = new THREE.Mesh(new THREE.BoxGeometry(6.2, 10.0, 5.5), rockMat);
+    cliffBody.position.set(-16, 5.0, 29);
+    cliffBody.castShadow = true;
+    cliffBody.receiveShadow = true;
+    mountainGroup.add(cliffBody);
+
+    // Lower Ridge Terrace 1 (y = 2.5m)
+    const ridge1 = new THREE.Mesh(new THREE.BoxGeometry(5.5, 2.5, 4.0), ledgeMat);
+    ridge1.position.set(-16, 1.25, 22);
+    ridge1.castShadow = true;
+    ridge1.receiveShadow = true;
+    mountainGroup.add(ridge1);
+
+    // Middle Ridge Terrace 2 (y = 5.0m)
+    const ridge2 = new THREE.Mesh(new THREE.BoxGeometry(5.5, 5.0, 3.8), ledgeMat);
+    ridge2.position.set(-16, 2.5, 25);
+    ridge2.castShadow = true;
+    ridge2.receiveShadow = true;
+    mountainGroup.add(ridge2);
+
+    // Eagle's Peak Summit Deck (y = 10.4m)
+    const summitDeck = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 0.35, 24),
+                                      new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.7 }));
+    summitDeck.position.set(-16, 10.25, 29);
+    summitDeck.castShadow = true;
+    summitDeck.receiveShadow = true;
+    mountainGroup.add(summitDeck);
+
+    // Summit Lookout Railing & Expedition Flag
+    const flagpole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.2, 8),
+                                    new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.8 }));
+    flagpole.position.set(-16, 11.8, 29);
+    mountainGroup.add(flagpole);
+
+    const flag = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.7, 0.05),
+                                new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 }));
+    flag.position.set(-15.4, 12.8, 29);
+    mountainGroup.add(flag);
+    scene.add(mountainGroup);
+
+    // 7. Stylized Low-Poly Pine & Birch Trees
+    const treesGroup = new THREE.Group();
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+    const pineFoliageMat = new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.8 });
+    const birchFoliageMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.75 });
+    const birchTrunkMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.6 });
+
+    function createPineTree(x, z, scale=1.0) {
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.25 * scale, 0.35 * scale, 1.8 * scale, 8), trunkMat);
+      trunk.position.y = 0.9 * scale;
+      trunk.castShadow = true;
+      tree.add(trunk);
+
+      for (let i = 0; i < 3; i++) {
+        const cone = new THREE.Mesh(new THREE.ConeGeometry((1.8 - i * 0.4) * scale, 1.9 * scale, 8), pineFoliageMat);
+        cone.position.y = (1.8 + i * 1.1) * scale;
+        cone.castShadow = true;
+        cone.receiveShadow = true;
+        tree.add(cone);
+      }
+      tree.position.set(x, getSurfaceElevation(x, z), z);
+      return tree;
+    }
+
+    function createBirchTree(x, z, scale=1.0) {
+      const tree = new THREE.Group();
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18 * scale, 0.24 * scale, 2.4 * scale, 8), birchTrunkMat);
+      trunk.position.y = 1.2 * scale;
+      trunk.castShadow = true;
+      tree.add(trunk);
+
+      const foliage = new THREE.Mesh(new THREE.SphereGeometry(1.4 * scale, 8, 8), birchFoliageMat);
+      foliage.position.y = 2.8 * scale;
+      foliage.castShadow = true;
+      tree.add(foliage);
+
+      tree.position.set(x, getSurfaceElevation(x, z), z);
+      return tree;
+    }
+
+    const treeCoords = [
+      [-8, -12, 'pine', 1.1], [-12, -8, 'pine', 1.3], [-14, -16, 'pine', 0.9],
+      [-22, 6, 'pine', 1.2], [-24, 14, 'pine', 1.0], [-10, 16, 'birch', 1.1],
+      [-6, 22, 'birch', 1.2], [-22, 24, 'pine', 1.4], [6, 18, 'birch', 1.0],
+      [12, 14, 'birch', 0.9], [18, 10, 'birch', 1.1], [24, -4, 'pine', 1.2],
+      [26, -18, 'pine', 1.0], [16, -26, 'pine', 1.3], [2, -24, 'birch', 1.1],
+      [-4, -22, 'pine', 1.0]
+    ];
+    treeCoords.forEach(([tx, tz, type, sc]) => {
+      treesGroup.add(type === 'pine' ? createPineTree(tx, tz, sc) : createBirchTree(tx, tz, sc));
+    });
+    scene.add(treesGroup);
+
+    // 8. Expanding Water Ripple System
+    const ripples = [];
+    function createWaterRipple(x, z) {
+      const ripGeo = new THREE.RingGeometry(0.15, 0.32, 32);
+      const ripMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+      const ripMesh = new THREE.Mesh(ripGeo, ripMat);
+      ripMesh.rotation.x = -Math.PI / 2;
+      ripMesh.position.set(x, -0.13, z);
+      scene.add(ripMesh);
+      ripples.push({ mesh: ripMesh, age: 0, maxAge: 50, radius: 0.3 });
+    }
+
+    // 9. Nutritious Wild Berry Bushes (8 Bushes)
+    const berryBushesGroup = new THREE.Group();
+    const bushFoliageMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
+    const berryMat = new THREE.MeshStandardMaterial({ color: 0xe11d48, emissive: 0x9f1239, emissiveIntensity: 0.5, roughness: 0.3 });
+
+    const bushCoords = [
+      [-8.0, 10.0],
+      [-14.0, 8.0],
+      [5.0, 12.0],
+      [12.0, 8.0],
+      [22.0, 4.0],
+      [-6.0, -18.0],
+      [-18.0, -12.0],
+      [25.0, -14.0]
+    ];
+
+    const berryBushes = [];
+    bushCoords.forEach(([bx, bz], idx) => {
+      const bGroup = new THREE.Group();
+      bGroup.position.set(bx, getSurfaceElevation(bx, bz), bz);
+
+      // Central Bush Mass
+      const mainBush = new THREE.Mesh(new THREE.SphereGeometry(0.85, 10, 10), bushFoliageMat);
+      mainBush.position.y = 0.65;
+      mainBush.castShadow = true;
+      bGroup.add(mainBush);
+
+      // Side Foliage Puffs
+      const sideOffsets = [
+        [0.45, 0.50, 0.30, 0.58],
+        [-0.45, 0.48, -0.25, 0.55],
+        [0.25, 0.52, -0.45, 0.56],
+        [-0.30, 0.50, 0.40, 0.52]
+      ];
+      sideOffsets.forEach(([ox, oy, oz, orad]) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(orad, 8, 8), bushFoliageMat);
+        puff.position.set(ox, oy, oz);
+        puff.castShadow = true;
+        bGroup.add(puff);
+      });
+
+      // 6 Pluckable Sweet Berries
+      const berryMeshes = [];
+      const berryAngles = [0.2, 1.2, 2.3, 3.4, 4.5, 5.6];
+      berryAngles.forEach((ang, bidx) => {
+        const bm = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), berryMat);
+        const bRad = 0.76;
+        bm.position.set(
+          Math.cos(ang) * bRad,
+          0.65 + (bidx % 2 === 0 ? 0.22 : -0.12),
+          Math.sin(ang) * bRad
+        );
+        bGroup.add(bm);
+        berryMeshes.push(bm);
+      });
+
+      berryBushesGroup.add(bGroup);
+      berryBushes.push({
+        id: `BerryBush_${idx + 1}`,
+        pos: [bx, getSurfaceElevation(bx, bz), bz],
+        group: bGroup,
+        berries: 6,
+        maxBerries: 6,
+        berryMeshes: berryMeshes,
+        regrowTimer: 0
+      });
+    });
+    scene.add(berryBushesGroup);
+
+    // ==============================================================
+    // --- AUTONOMOUS PROCEDURAL WILDLIFE (NO LFM BACKEND) ---
+    // ==============================================================
+    // Deterministic state-machine AI for deer herd and rabbits.
+    // Zero external API dependencies or latency.
+
+    const wildlifeGroup = new THREE.Group();
+
+    // 1. Low-Poly Deer Herd (Deer_1..3)
+    const deerCoatMat = new THREE.MeshStandardMaterial({ color: 0x92400e, roughness: 0.85 });
+    const deerUnderbellyMat = new THREE.MeshStandardMaterial({ color: 0xfef08a, roughness: 0.9 });
+    const deerDarkMat = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.75 });
+    const antlerMat = new THREE.MeshStandardMaterial({ color: 0xf5eedb, roughness: 0.7 });
+
+    function createDeerMesh() {
+      const deer = new THREE.Group();
+
+      // Torso
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.70, 0.65, 1.35), deerCoatMat);
+      body.position.y = 0.95;
+      body.castShadow = true;
+      deer.add(body);
+
+      // Underbelly accent
+      const belly = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.15, 0.95), deerUnderbellyMat);
+      belly.position.set(0, 0.68, 0);
+      deer.add(belly);
+
+      // Neck Group (pivots for grazing head-bob)
+      const neckGroup = new THREE.Group();
+      neckGroup.position.set(0, 1.15, 0.60);
+
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.65, 0.36), deerCoatMat);
+      neck.position.set(0, 0.25, 0.15);
+      neck.rotation.x = 0.45;
+      neck.castShadow = true;
+      neckGroup.add(neck);
+
+      // Head
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.45), deerCoatMat);
+      head.position.set(0, 0.55, 0.35);
+      head.castShadow = true;
+      neckGroup.add(head);
+
+      // Snout & Muzzle
+      const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.16, 0.24), deerUnderbellyMat);
+      muzzle.position.set(0, 0.48, 0.56);
+      neckGroup.add(muzzle);
+
+      // Black Nose
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.06), deerDarkMat);
+      nose.position.set(0, 0.52, 0.68);
+      neckGroup.add(nose);
+
+      // Ears
+      const earL = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 6), deerCoatMat);
+      earL.rotation.set(-0.2, 0, -0.6);
+      earL.position.set(-0.16, 0.72, 0.26);
+      neckGroup.add(earL);
+
+      const earR = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.24, 6), deerCoatMat);
+      earR.rotation.set(-0.2, 0, 0.6);
+      earR.position.set(0.16, 0.72, 0.26);
+      neckGroup.add(earR);
+
+      // Branching Antlers
+      [-0.10, 0.10].forEach((ax, aidx) => {
+        const antlerMain = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.45, 6), antlerMat);
+        antlerMain.rotation.set(-0.4, 0, aidx === 0 ? -0.25 : 0.25);
+        antlerMain.position.set(ax, 0.82, 0.28);
+        neckGroup.add(antlerMain);
+
+        const antlerTine = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.025, 0.22, 6), antlerMat);
+        antlerTine.rotation.set(-0.1, 0, aidx === 0 ? -0.7 : 0.7);
+        antlerTine.position.set(ax * 1.6, 0.88, 0.34);
+        neckGroup.add(antlerTine);
+      });
+
+      deer.add(neckGroup);
+
+      // 4 Articulated Legs
+      const legs = [];
+      const legPositions = [
+        [-0.24, -0.45], // front left
+        [0.24, -0.45],  // front right
+        [-0.24, 0.45],  // back left
+        [0.24, 0.45]    // back right
+      ];
+      legPositions.forEach(([lx, lz]) => {
+        const legPivot = new THREE.Group();
+        legPivot.position.set(lx, 0.85, lz);
+
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.05, 0.85, 8), deerCoatMat);
+        leg.position.y = -0.42;
+        leg.castShadow = true;
+        legPivot.add(leg);
+
+        const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.12, 8), deerDarkMat);
+        hoof.position.y = -0.80;
+        legPivot.add(hoof);
+
+        deer.add(legPivot);
+        legs.push(legPivot);
+      });
+
+      // Tail
+      const tail = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.18, 0.08), deerUnderbellyMat);
+      tail.position.set(0, 0.95, -0.72);
+      tail.rotation.x = -0.35;
+      deer.add(tail);
+
+      return { root: deer, neckGroup, legs };
+    }
+
+    const deerData = [
+      { id: "Deer_1", pos: [-18.0, 0.0, 14.0], targetPos: [-14.0, 0.0, 8.0], state: "grazing", timer: 60, walkCycle: 0 },
+      { id: "Deer_2", pos: [-24.0, 0.0, 20.0], targetPos: [-22.0, 0.0, 16.0], state: "grazing", timer: 120, walkCycle: 1.5 },
+      { id: "Deer_3", pos: [16.0, 0.0, 16.0], targetPos: [12.0, 0.0, 8.0], state: "grazing", timer: 90, walkCycle: 3.0 }
+    ];
+
+    deerData.forEach(d => {
+      const meshObj = createDeerMesh();
+      meshObj.root.position.set(d.pos[0], getSurfaceElevation(d.pos[0], d.pos[2]), d.pos[2]);
+      wildlifeGroup.add(meshObj.root);
+      d.meshObj = meshObj;
+    });
+
+    // 2. Low-Poly Wild Rabbits (Rabbit_1..3)
+    const rabbitFurMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, roughness: 0.9 });
+    const rabbitInnerEarMat = new THREE.MeshStandardMaterial({ color: 0xfbcfe8, roughness: 0.8 });
+    const rabbitEyeMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4 });
+
+    function createRabbitMesh() {
+      const rabbit = new THREE.Group();
+
+      // Fluffy Body
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), rabbitFurMat);
+      body.scale.set(1.0, 0.95, 1.25);
+      body.position.y = 0.22;
+      body.castShadow = true;
+      rabbit.add(body);
+
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 10), rabbitFurMat);
+      head.position.set(0, 0.32, 0.20);
+      head.castShadow = true;
+      rabbit.add(head);
+
+      // Eyes
+      [-0.10, 0.10].forEach(ex => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), rabbitEyeMat);
+        eye.position.set(ex, 0.35, 0.28);
+        rabbit.add(eye);
+      });
+
+      // Ears
+      const earL = new THREE.Group();
+      earL.position.set(-0.07, 0.44, 0.16);
+      const earLMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.32, 8), rabbitFurMat);
+      earLMesh.position.y = 0.16;
+      earL.add(earLMesh);
+      const earLInner = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.02), rabbitInnerEarMat);
+      earLInner.position.set(0, 0.16, 0.03);
+      earL.add(earLInner);
+      rabbit.add(earL);
+
+      const earR = new THREE.Group();
+      earR.position.set(0.07, 0.44, 0.16);
+      const earRMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.32, 8), rabbitFurMat);
+      earRMesh.position.y = 0.16;
+      earR.add(earRMesh);
+      const earRInner = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.24, 0.02), rabbitInnerEarMat);
+      earRInner.position.set(0, 0.16, 0.03);
+      earR.add(earRInner);
+      rabbit.add(earR);
+
+      // Cotton Tail
+      const tail = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), rabbitFurMat);
+      tail.position.set(0, 0.24, -0.30);
+      rabbit.add(tail);
+
+      return { root: rabbit, earL, earR };
+    }
+
+    const rabbitData = [
+      { id: "Rabbit_1", pos: [-7.5, 0.0, 10.5], targetPos: [-8.0, 0.0, 10.0], state: "nibbling", timer: 70, hopCycle: 0 },
+      { id: "Rabbit_2", pos: [5.5, 0.0, 11.5], targetPos: [5.0, 0.0, 12.0], state: "nibbling", timer: 100, hopCycle: 1.2 },
+      { id: "Rabbit_3", pos: [21.5, 0.0, 3.5], targetPos: [22.0, 0.0, 4.0], state: "nibbling", timer: 80, hopCycle: 2.4 }
+    ];
+
+    rabbitData.forEach(r => {
+      const meshObj = createRabbitMesh();
+      meshObj.root.position.set(r.pos[0], getSurfaceElevation(r.pos[0], r.pos[2]), r.pos[2]);
+      wildlifeGroup.add(meshObj.root);
+      r.meshObj = meshObj;
+    });
+
+    scene.add(wildlifeGroup);
+
+    // ==============================================================
+    // --- FULLY ARTICULATED CYBERNETIC HUMANOID AVATAR (EKO) ---
+    // ==============================================================
+    const agentGroup = new THREE.Group();
+
+    // Materials
+    const cyanArmorMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.7, roughness: 0.25 });
+    const whiteChassisMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, metalness: 0.4, roughness: 0.2 });
+    const goldJointMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.85, roughness: 0.2 });
+    const emissiveCyanMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, emissive: 0x38bdf8, emissiveIntensity: 1.0 });
+
+    // 1. Concentric Ground Aura Rings
+    const auraGeo = new THREE.RingGeometry(0.8, 1.3, 32);
+    const auraMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.65 });
+    const auraRing = new THREE.Mesh(auraGeo, auraMat);
+    auraRing.rotation.x = Math.PI / 2;
+    auraRing.position.y = 0.05;
+    agentGroup.add(auraRing);
+
+    const outerAuraGeo = new THREE.RingGeometry(1.6, 1.85, 32);
+    const outerAuraMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, side: THREE.DoubleSide, transparent: true, opacity: 0.4 });
+    const outerAuraRing = new THREE.Mesh(outerAuraGeo, outerAuraMat);
+    outerAuraRing.rotation.x = Math.PI / 2;
+    outerAuraRing.position.y = 0.04;
+    agentGroup.add(outerAuraRing);
+
+    // 2. Pelvis / Hip Pivot (at y=0.88 within agentGroup)
+    const pelvisGroup = new THREE.Group();
+    pelvisGroup.position.y = 0.88;
+    const pelvisMesh = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.22, 0.32), whiteChassisMat);
+    pelvisMesh.castShadow = true;
+    pelvisGroup.add(pelvisMesh);
+    agentGroup.add(pelvisGroup);
+
+    // 3. Legs & Feet
+    function createLeg(side) {
+      const hipJoint = new THREE.Group();
+      hipJoint.position.set(side * 0.18, -0.05, 0);
+
+      // Thigh
+      const thighMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.38, 12), cyanArmorMat);
+      thighMesh.position.y = -0.19;
+      thighMesh.castShadow = true;
+      hipJoint.add(thighMesh);
+
+      // Knee Joint
+      const kneeGroup = new THREE.Group();
+      kneeGroup.position.y = -0.38;
+      const kneeMesh = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), goldJointMat);
+      kneeGroup.add(kneeMesh);
+
+      // Shin / Lower Leg
+      const shinMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.38, 12), whiteChassisMat);
+      shinMesh.position.y = -0.19;
+      shinMesh.castShadow = true;
+      kneeGroup.add(shinMesh);
+
+      // Foot
+      const footMesh = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.08, 0.26), cyanArmorMat);
+      footMesh.position.set(0, -0.38, 0.06);
+      footMesh.castShadow = true;
+      kneeGroup.add(footMesh);
+
+      hipJoint.add(kneeGroup);
+      return { hipJoint, kneeGroup };
+    }
+
+    const leftLeg = createLeg(-1);
+    pelvisGroup.add(leftLeg.hipJoint);
+
+    const rightLeg = createLeg(1);
+    pelvisGroup.add(rightLeg.hipJoint);
+
+    // 4. Torso & Chest
+    const torsoGroup = new THREE.Group();
+    torsoGroup.position.y = 0.12;
+
+    const chestMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.28, 0.65, 14), whiteChassisMat);
+    chestMesh.position.y = 0.34;
+    chestMesh.castShadow = true;
+    torsoGroup.add(chestMesh);
+
+    // Pulsing Neural Core (Chest)
+    const coreMesh = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), emissiveCyanMat);
+    coreMesh.position.set(0, 0.42, 0.28);
+    torsoGroup.add(coreMesh);
+
+    // 5. Head & Glowing Visor
+    const headGroup = new THREE.Group();
+    headGroup.position.y = 0.82;
+
+    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), whiteChassisMat);
+    headMesh.castShadow = true;
+    headGroup.add(headMesh);
+
+    const visorMesh = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.10, 0.16), emissiveCyanMat);
+    visorMesh.position.set(0, 0.02, 0.20);
+    headGroup.add(visorMesh);
+
+    // Floating Name Tag Sprite
+    function createNameTag(text) {
+      const canvas = document.createElement("canvas");
+      canvas.width = 256; canvas.height = 64;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "rgba(15, 23, 42, 0.88)";
+      ctx.roundRect(8, 6, 240, 52, 16); ctx.fill();
+      ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = "#38bdf8"; ctx.font = "bold 24px sans-serif"; ctx.textAlign = "center";
+      ctx.fillText(text, 128, 41);
+      const texture = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: texture, transparent: true });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.scale.set(2.8, 0.7, 1);
+      sprite.position.y = 0.58;
+      return sprite;
+    }
+    const nameTag = createNameTag("â— EKO (LFM-3)");
+    headGroup.add(nameTag);
+
+    // --- 3D FLOATING THOUGHT BUBBLE DIALOGUE SYSTEM ---
+    const thoughtCanvas = document.createElement("canvas");
+    thoughtCanvas.width = 640;
+    thoughtCanvas.height = 320;
+    const thoughtCtx = thoughtCanvas.getContext("2d");
+    const thoughtTexture = new THREE.CanvasTexture(thoughtCanvas);
+    thoughtTexture.minFilter = THREE.LinearFilter;
+    const thoughtSpriteMat = new THREE.SpriteMaterial({ map: thoughtTexture, transparent: true, depthTest: false });
+    const thoughtSprite = new THREE.Sprite(thoughtSpriteMat);
+    thoughtSprite.scale.set(4.2, 2.1, 1.0);
+    thoughtSprite.position.set(0, 1.70, 0); // Floats directly above nameTag & head
+    headGroup.add(thoughtSprite);
+
+    let isThoughtBubbleVisible = true;
+    let currentThoughtText = "The morning sun warms the meadow. The lake is calm and blue... let's explore the shoreline.";
+
+    function wrapCanvasText(ctx, text, maxWidth) {
+      const words = text.split(" ");
+      const lines = [];
+      let currentLine = "";
+      for (let i = 0; i < words.length; i++) {
+        const testLine = currentLine ? currentLine + " " + words[i] : words[i];
+        if (ctx.measureText(testLine).width > maxWidth && i > 0) {
+          lines.push(currentLine);
+          currentLine = words[i];
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      return lines;
+    }
+
+    function renderThoughtBubble(thought) {
+      currentThoughtText = thought;
+      const ctx = thoughtCtx;
+      ctx.clearRect(0, 0, 640, 320);
+
+      if (!isThoughtBubbleVisible) {
+        thoughtTexture.needsUpdate = true;
+        return;
+      }
+
+      // Outer Glow
+      ctx.save();
+      ctx.shadowColor = "rgba(56, 189, 248, 0.45)";
+      ctx.shadowBlur = 16;
+
+      // Main Thought Cloud / Bubble Card
+      const bx = 20, by = 16, bw = 600, bh = 210, br = 26;
+      ctx.fillStyle = "rgba(10, 15, 28, 0.94)";
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, br);
+      ctx.fill();
+
+      // Border Gradient
+      const grad = ctx.createLinearGradient(bx, by, bx + bw, by + bh);
+      grad.addColorStop(0, "#38bdf8");
+      grad.addColorStop(0.5, "#fbbf24");
+      grad.addColorStop(1, "#c084fc");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+
+      // Trailing Comic Thought Dots
+      const dots = [
+        { x: 320, y: 248, r: 12, lw: 3.5 },
+        { x: 308, y: 275, r: 8, lw: 2.5 },
+        { x: 300, y: 298, r: 5, lw: 2 }
+      ];
+      dots.forEach(d => {
+        ctx.save();
+        ctx.shadowColor = "rgba(56, 189, 248, 0.6)";
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = "rgba(10, 15, 28, 0.95)";
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = d.lw;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Header Tag: Identity & Cognition Mode
+      ctx.fillStyle = "#fbbf24";
+      ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      ctx.fillText("ðŸ’­ EKO'S THOUGHT PROCESS [LFM-3]", 44, 54);
+
+      // Subtle Divider
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(44, 68);
+      ctx.lineTo(596, 68);
+      ctx.stroke();
+
+      // Thought Monologue Lines
+      ctx.fillStyle = "#f8fafc";
+      ctx.font = "italic 500 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      const wrapped = wrapCanvasText(ctx, `â€œ${thought}â€`, 530);
+      const startY = 104;
+      const lineHeight = 34;
+      wrapped.slice(0, 3).forEach((line, idx) => {
+        ctx.fillText(line, 44, startY + idx * lineHeight);
+      });
+
+      thoughtTexture.needsUpdate = true;
+
+      // Update Top HUD banner
+      const bannerText = document.getElementById("thought-banner-text");
+      if (bannerText) bannerText.innerText = `â€œ${thought}â€`;
+    }
+
+    renderThoughtBubble(currentThoughtText);
+
+    function setAgentThought(thought) {
+      renderThoughtBubble(thought);
+      addTranscriptEntry("Eko Mind", `ðŸ’­ "${thought}"`);
+    }
+
+    function toggleThoughtBubble() {
+      isThoughtBubbleVisible = !isThoughtBubbleVisible;
+      renderThoughtBubble(currentThoughtText);
+      const btn = document.getElementById("bubble-toggle-btn");
+      if (btn) btn.innerText = isThoughtBubbleVisible ? "ðŸ’­ Bubble: ON" : "ðŸ’­ Bubble: OFF";
+    }
+
+    torsoGroup.add(headGroup);
+
+    // 6. Arms & Sculpted Hands
+    function createArm(side) {
+      const shoulderGroup = new THREE.Group();
+      shoulderGroup.position.set(side * 0.38, 0.55, 0);
+
+      const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 12), goldJointMat);
+      shoulderGroup.add(pauldron);
+
+      const upperArmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.32, 10), cyanArmorMat);
+      upperArmMesh.position.y = -0.16;
+      upperArmMesh.castShadow = true;
+      shoulderGroup.add(upperArmMesh);
+
+      const elbowGroup = new THREE.Group();
+      elbowGroup.position.y = -0.32;
+      const elbowMesh = new THREE.Mesh(new THREE.SphereGeometry(0.065, 10, 10), goldJointMat);
+      elbowGroup.add(elbowMesh);
+
+      const forearmMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.055, 0.28, 10), whiteChassisMat);
+      forearmMesh.position.y = -0.14;
+      forearmMesh.castShadow = true;
+      elbowGroup.add(forearmMesh);
+
+      const handGroup = new THREE.Group();
+      handGroup.position.y = -0.28;
+
+      const palmMesh = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.10, 0.06), cyanArmorMat);
+      handGroup.add(palmMesh);
+
+      for (let f = -1; f <= 1; f++) {
+        const finger = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.06, 0.03), goldJointMat);
+        finger.position.set(f * 0.03, -0.06, 0.02);
+        handGroup.add(finger);
+      }
+
+      elbowGroup.add(handGroup);
+      shoulderGroup.add(elbowGroup);
+      return { shoulderGroup, elbowGroup, handGroup };
+    }
+
+    const leftArm = createArm(-1);
+    torsoGroup.add(leftArm.shoulderGroup);
+
+    const rightArm = createArm(1);
+    torsoGroup.add(rightArm.shoulderGroup);
+
+    pelvisGroup.add(torsoGroup);
+
+    const agentSpot = new THREE.PointLight(0x38bdf8, 2.5, 12);
+    agentSpot.position.set(0, 1.8, 0);
+    agentGroup.add(agentSpot);
+
+    // Initial position on top of Campfire Stone Hearth surface (y = 0.25m)
+    agentGroup.position.set(0, 0.25, 1.5);
+    scene.add(agentGroup);
+
+    // --- PROPS & SIMULATION ENTITIES ---
+    const entities = [];
+    const entityMeshes = new Map();
+
+    function addEntity(id, name, shape, size, pos, color, mass=1.0, attrs={}) {
+      const ent = { id, name, shape, size, pos: [...pos], vel: [0,0,0], color, mass, attrs };
+      entities.push(ent);
+
+      const [sx, sy, sz] = size;
+      const [r, g, b] = color;
+      let geo;
+      if (shape === "sphere") geo = new THREE.SphereGeometry(sx/2, 24, 24);
+      else if (shape === "cylinder") geo = new THREE.CylinderGeometry(sx/2, sx/2, sy, 24);
+      else geo = new THREE.BoxGeometry(sx, sy, sz);
+
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(r, g, b),
+        roughness: attrs.SkippingStone ? 0.4 : (attrs.Timber ? 0.8 : 0.3),
+        metalness: attrs.Crystal ? 0.4 : (attrs.Geode ? 0.7 : 0.1),
+        emissive: attrs.Luminous ? new THREE.Color(r, g, b) : new THREE.Color(0,0,0),
+        emissiveIntensity: attrs.Luminous ? 0.65 : 0.0
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.position.set(...pos);
+      scene.add(mesh);
+      entityMeshes.set(id, mesh);
+      return ent;
+    }
+
+    // Default Entity Initializer (Lakeside Sanctuary Props)
+    function initDefaultEntities() {
+      // 4 Flat River Skipping Stones (Placed on the meadow bank near pier entrance)
+      const stonePositions = [
+        [1.2, 0.35, -8.5],
+        [2.2, 0.05, -7.0],
+        [0.5, 0.05, -11.5],
+        [1.8, 0.05, -12.5]
+      ];
+      stonePositions.forEach((sp, idx) => {
+        const id = `RiverStone_${idx + 1}`;
+        addEntity(id, id, "cylinder", [0.75, 0.22, 0.75], sp, [0.42, 0.50, 0.60], 0.6, { SkippingStone: true });
+      });
+
+      // 3 Cedar Timber Crates (Around campfire hearth for building)
+      const cratePositions = [
+        [-2.0, 0.25, -1.5],
+        [-2.8, 0.05, 0.5],
+        [2.2, 0.25, 1.8]
+      ];
+      cratePositions.forEach((cp, idx) => {
+        const id = `TimberCrate_${idx + 1}`;
+        addEntity(id, id, "box", [0.9, 0.9, 0.9], cp, [0.72, 0.45, 0.20], 1.4, { Timber: true });
+      });
+
+      // 1 Luminous River Geode (Placed near riverbank, mass 3.8kg)
+      const geodeX = -4.5, geodeZ = -2.5;
+      const geodeY = getSurfaceElevation(geodeX, geodeZ) + 0.6;
+      addEntity("RiverGeode", "RiverGeode", "sphere", [1.2, 1.2, 1.2],
+                [geodeX, geodeY, geodeZ], [0.35, 0.78, 0.95], 3.8, { Geode: true, Luminous: true });
+    }
+
+    // --- CAMERA MODES & DEFAULT POSITIONING ---
+    let cameraMode = 'agent';
+
+    function setCamera(mode) {
+      cameraMode = mode;
+      document.querySelectorAll(".view-btn").forEach(b => b.classList.remove("active"));
+      if (mode === 'agent') {
+        const btn = document.getElementById("cam-agent-btn");
+        if (btn) btn.classList.add("active");
+        camera.position.set(agentGroup.position.x + 3.2, agentGroup.position.y + 4.2, agentGroup.position.z + 7.5);
+        controls.target.set(agentGroup.position.x, agentGroup.position.y + 1.1, agentGroup.position.z);
+      } else if (mode === 'lake') {
+        const btn = document.getElementById("cam-lake-btn");
+        if (btn) btn.classList.add("active");
+        camera.position.set(22, 9, 8);
+        controls.target.set(9, 0, -10);
+      } else if (mode === 'ocean') {
+        const btn = document.getElementById("cam-ocean-btn");
+        if (btn) btn.classList.add("active");
+        camera.position.set(0, 14, -14);
+        controls.target.set(0, -0.3, -85);
+      } else if (mode === 'peak') {
+        const btn = document.getElementById("cam-peak-btn");
+        if (btn) btn.classList.add("active");
+        camera.position.set(-16, 15, 45);
+        controls.target.set(-16, 8, 28);
+      } else if (mode === 'wildlife') {
+        const btn = document.getElementById("cam-wildlife-btn");
+        if (btn) btn.classList.add("active");
+        camera.position.set(-12, 7, 24);
+        controls.target.set(-18, 1.2, 14);
+      } else if (mode === 'overview') {
+        const btn = document.getElementById("cam-overview-btn");
+        if (btn) btn.classList.add("active");
+        camera.position.set(0, 48, 64);
+        controls.target.set(0, 2, 0);
+      }
+    }
+    setCamera('agent');
+
+    // --- AGENT KINEMATICS, STATE & BIOLOGICAL SURVIVAL ---
+    let agentState = {
+      pos: [0, 0.25, 1.5],
+      vel: [0, 0, 0],
+      targetPos: [0, 0.25, 2.5],
+      holdingId: null,
+      actionState: 'walk',
+      behaviorIndex: 0,
+      timer: 80,
+      walkCycle: 0,
+      throwTimer: 0,
+      pickTimer: 0,
+      forageTimer: 0,
+      restTimer: 0,
+      shardCount: 0,
+      hunger: 85.0,
+      energy: 95.0,
+      health: 100.0,
+      isNearFire: true,
+      isBurning: false,
+      isDrowning: false,
+      deathCount: 0
+    };
+
+    const behaviors = [
+      {
+        name: "Surveying Lakeside Meadow",
+        target: [0, 0.25, 2.0],
+        action: "Observing sunny meadow, shimmering lake, and vast horizon.",
+        thought: "The morning sun warms the meadow. The lake is calm and blue... let's explore the shoreline."
+      },
+      {
+        name: "Foraging Mountain Berries",
+        target: [-8.0, 0.0, 10.0],
+        action: "Plucking sweet wild berries from mountain bush to replenish hunger.",
+        thought: "I can smell sweet mountain berries nearby! Let's forage a handful to recharge energy and stamina."
+      },
+      {
+        name: "Resting by Campfire Hearth",
+        target: [0.0, 0.25, 2.0],
+        action: "Absorbing radiant campfire warmth to rapidly regenerate energy.",
+        thought: "The dancing campfire flames are so warm and inviting. Resting by the hearth restores my stamina 3x faster."
+      },
+      {
+        name: "Strolling Southern Ocean Beach",
+        target: [0.0, 0.05, -34.0],
+        action: "Walking along golden sand dunes overlooking the vast southern ocean surf.",
+        thought: "The southern ocean stretches out infinitely. Cool sea mist and rolling surf waves... what an expansive world!"
+      },
+      {
+        name: "Walking to Wooden Pier",
+        target: [6.0, 0.35, -10.0],
+        action: "Walking along cedar wooden pier above the water.",
+        thought: "Stepping onto the cedar pier. I can hear the gentle lapping of the lake beneath the planks."
+      },
+      {
+        name: "Skipping Stone on Lake",
+        target: [9.5, 0.35, -10.0],
+        action: "Winding back arm and skipping flat river stone across the lake!",
+        thought: "Releasing a smooth river stone at low angle across the water... watch it skip and leave ripples!"
+      },
+      {
+        name: "Inspecting River Geode",
+        target: [-4.5, 0.0, -2.5],
+        action: "Examining crystalline river geode at meadow edge.",
+        thought: "Found a luminous river geode near the bank! High mass (3.8kg). If thrown at speed > 9.5 m/s, kinetic impact will fracture it into crystal shards."
+      },
+      {
+        name: "Gathering Cedar Crates",
+        target: [-2.5, 0.0, 4.0],
+        action: "Collecting stackable timber crates around campfire hearth.",
+        thought: "Gathering cedar timber crates. Perfect for building a sturdy lookout tower near the campfire."
+      },
+      {
+        name: "Climbing Eagle's Peak",
+        target: [-16, 0.0, 19.5],
+        action: "Approaching 10-meter natural granite cliff of Eagle's Peak.",
+        thought: "Approaching Eagle's Peak. 10 meters of rugged granite. Ready to test continuous bipedal jumps up the ledges!"
+      },
+      {
+        name: "Eagle's Peak Summit Lookout",
+        target: [-16, 10.4, 29.0],
+        action: "Standing victorious atop the 10.4m Eagle's Peak summit deck!",
+        thought: "â˜… Reached the 10.4m summit deck! Look at the view over the entire lake and forest below!"
+      },
+      {
+        name: "Stacking Crate Tower at Hearth",
+        target: [0.8, 0.25, 1.6],
+        action: "Stacking 3 cedar crates into a balanced tower at stone hearth.",
+        thought: "Returning to the stone hearth. Stacking timber crates into a vertical tower."
+      }
+    ];
+
+    let tick = 0;
+    let isPlaying = true;
+    let currentTab = 'semantic';
+
+    // ==============================================================
+    // --- WORLD STATE PERSISTENCE (PREVENTS RESET ON BROWSER REFRESH) ---
+    // ==============================================================
+    function saveWorldState() {
+      try {
+        const saveObj = {
+          version: 4,
+          timestamp: Date.now(),
+          tick: tick,
+          agentState: {
+            pos: [...agentState.pos],
+            vel: [...agentState.vel],
+            targetPos: [...agentState.targetPos],
+            holdingId: agentState.holdingId,
+            actionState: agentState.actionState,
+            behaviorIndex: agentState.behaviorIndex,
+            timer: agentState.timer,
+            walkCycle: agentState.walkCycle,
+            shardCount: agentState.shardCount,
+            hunger: agentState.hunger,
+            energy: agentState.energy,
+            health: agentState.health,
+            isBurning: agentState.isBurning,
+            isDrowning: agentState.isDrowning,
+            deathCount: agentState.deathCount,
+            isNearFire: agentState.isNearFire,
+            currentThoughtText: currentThoughtText
+          },
+          berryCounts: berryBushes.map(b => b.berries),
+          entities: entities.map(e => ({
+            id: e.id,
+            name: e.name,
+            shape: e.shape,
+            size: [...e.size],
+            pos: [...e.pos],
+            vel: [...e.vel],
+            color: [...e.color],
+            mass: e.mass,
+            attrs: { ...e.attrs }
+          })),
+          recentTranscripts: Array.from(document.querySelectorAll("#transcript-container .transcript-entry")).slice(0, 20).map(el => ({
+            role: el.querySelector(".transcript-role") ? el.querySelector(".transcript-role").innerText : "System",
+            text: el.querySelector(".transcript-text") ? el.querySelector(".transcript-text").innerText : el.innerText
+          }))
+        };
+        localStorage.setItem("terra_haven_world_save", JSON.stringify(saveObj));
+      } catch (e) {
+        console.warn("Could not save world state:", e);
+      }
+    }
+
+    function loadWorldState() {
+      try {
+        const raw = localStorage.getItem("terra_haven_world_save");
+        if (!raw) return false;
+        const saved = JSON.parse(raw);
+        if (!saved || !saved.agentState || !Array.isArray(saved.entities) || saved.entities.length === 0) return false;
+
+        // Restore Tick
+        tick = saved.tick || 0;
+        const tickEl = document.getElementById("tick-counter");
+        if (tickEl) tickEl.innerText = tick;
+
+        // Restore Agent State
+        Object.assign(agentState, saved.agentState);
+        agentGroup.position.set(...agentState.pos);
+
+        // Update Survival & Health HUD
+        const healthEl = document.getElementById("health-text");
+        if (healthEl && typeof agentState.health === "number") {
+          healthEl.innerText = `${Math.round(agentState.health)}%`;
+          healthEl.style.color = agentState.health > 50 ? "#10b981" : (agentState.health > 25 ? "#f59e0b" : "#ef4444");
+        }
+        const hungerEl = document.getElementById("hunger-text");
+        if (hungerEl) hungerEl.innerText = `${Math.round(agentState.hunger)}%`;
+        const energyEl = document.getElementById("energy-text");
+        if (energyEl) energyEl.innerText = `${Math.round(agentState.energy)}%`;
+        const warmthPill = document.getElementById("warmth-pill");
+        if (warmthPill) warmthPill.style.display = agentState.isNearFire ? "inline-block" : "none";
+        const hazardPill = document.getElementById("hazard-pill");
+        if (hazardPill) {
+          if (agentState.isBurning) {
+            hazardPill.style.display = "inline-block";
+            hazardPill.innerText = "ðŸ”¥ Thermal Burn Hazard!";
+            hazardPill.style.borderColor = "#ef4444";
+            hazardPill.style.color = "#ef4444";
+          } else if (agentState.isDrowning) {
+            hazardPill.style.display = "inline-block";
+            hazardPill.innerText = "ðŸŒŠ Chassis Drowning Hazard!";
+            hazardPill.style.borderColor = "#0284c7";
+            hazardPill.style.color = "#38bdf8";
+          } else {
+            hazardPill.style.display = "none";
+          }
+        }
+
+        // Restore Berry Bushes
+        if (Array.isArray(saved.berryCounts)) {
+          saved.berryCounts.forEach((cnt, idx) => {
+            if (berryBushes[idx]) {
+              berryBushes[idx].berries = cnt;
+              berryBushes[idx].berryMeshes.forEach((bm, bidx) => {
+                bm.visible = bidx < cnt;
+              });
+            }
+          });
+        }
+
+        if (saved.agentState.currentThoughtText) {
+          currentThoughtText = saved.agentState.currentThoughtText;
+          renderThoughtBubble(currentThoughtText);
+        }
+
+        const b = behaviors[agentState.behaviorIndex] || behaviors[0];
+        const goalEl = document.getElementById("goal-pill-text");
+        if (goalEl) goalEl.innerText = b.name;
+        const actEl = document.getElementById("action-state-text");
+        if (actEl) actEl.innerText = agentState.actionState;
+        const altEl = document.getElementById("alt-pill-text");
+        if (altEl) altEl.innerText = `${agentState.pos[1].toFixed(2)}m`;
+        const holdEl = document.getElementById("holding-text");
+        if (holdEl) holdEl.innerText = agentState.holdingId || "None";
+
+        // Restore Entities
+        saved.entities.forEach(ent => {
+          const added = addEntity(ent.id, ent.name, ent.shape, ent.size, ent.pos, ent.color, ent.mass, ent.attrs);
+          added.vel = [...(ent.vel || [0,0,0])];
+        });
+
+        // Restore Transcripts
+        if (Array.isArray(saved.recentTranscripts) && saved.recentTranscripts.length > 0) {
+          const container = document.getElementById("transcript-container");
+          if (container) {
+            container.innerHTML = "";
+            saved.recentTranscripts.reverse().forEach(t => {
+              addTranscriptEntry(t.role, t.text);
+            });
+          }
+        }
+
+        addTranscriptEntry("World Persistence", `â˜… Terra Haven world state restored from persistent memory (Tick: ${tick}). Simulation resumes uninterrupted.`);
+        return true;
+      } catch (e) {
+        console.error("Failed to load world state:", e);
+        return false;
+      }
+    }
+
+    // Initialize World (Restore from storage if exists, otherwise create default)
+    const isRestored = loadWorldState();
+    if (!isRestored) {
+      initDefaultEntities();
+      addTranscriptEntry("System Initialization", "Welcome to Terra Haven lakeside sanctuary. Persistent world state active across browser reloads.");
+    }
+
+    function addTranscriptEntry(role, text) {
+      const container = document.getElementById("transcript-container");
+      const div = document.createElement("div");
+      div.className = "transcript-entry";
+      div.innerHTML = `<div class="transcript-role">${role}</div><div class="transcript-text">${text}</div>`;
+      container.prepend(div);
+      if (container.children.length > 30) container.removeChild(container.lastChild);
+    }
+
+    function spawnCrystalShards(originX, originY, originZ) {
+      for (let k = 1; k <= 3; k++) {
+        agentState.shardCount++;
+        const id = `CrystalShard_${agentState.shardCount}`;
+        const ent = addEntity(id, id, "box", [0.65, 0.65, 0.65],
+                              [originX + (k - 2) * 0.9, originY + 0.8, originZ + (Math.random() - 0.5) * 0.8],
+                              [0.35, 0.85, 0.95], 0.6, { Luminous: true, Crystal: true });
+        ent.vel = [(Math.random() - 0.5) * 4, 3.5 + Math.random() * 2.5, (Math.random() - 0.5) * 4];
+      }
+      addTranscriptEntry("Geode Fractured", "â˜… KINETIC IMPACT! River Geode fractured into 3 sparkling crystal shards!");
+      updateMemoryWithDiscovery("Kinetic Impact Verified: Hurling River Geode > 9.5 m/s fractures it into sparkling crystal shards.");
+    }
+
+    function updateMemoryWithDiscovery(discovery) {
+      if (!memoryCache.semantic.includes(discovery)) {
+        memoryCache.semantic += `\\n- *discovered* - ${discovery}`;
+        if (currentTab === 'semantic') switchTab('semantic');
+      }
+    }
+
+    // --- BIOLOGICAL SURVIVAL & EXPEDITION ACTIONS ---
+    function triggerForageAndEat() {
+      let targetBush = null;
+      let minD = 999;
+      berryBushes.forEach(b => {
+        if (b.berries > 0) {
+          const d = Math.hypot(b.pos[0] - agentState.pos[0], b.pos[2] - agentState.pos[2]);
+          if (d < minD) {
+            minD = d;
+            targetBush = b;
+          }
+        }
+      });
+
+      if (!targetBush) {
+        setAgentThought("All berry bushes in the vicinity are picked clean! Waiting for them to regrow in the sunshine.");
+        addTranscriptEntry("Foraging", "No ripe berries currently available. Bushes are regenerating.");
+        return;
+      }
+
+      setAgentThought(`Spotted ripe berries on ${targetBush.id}! Walking over to forage...`);
+      addTranscriptEntry("Eko Navigation", `Approaching ${targetBush.id} to forage wild berries...`);
+      agentState.targetPos = [targetBush.pos[0], getSurfaceElevation(targetBush.pos[0], targetBush.pos[2]), targetBush.pos[2] + 1.2];
+
+      const checkArrival = setInterval(() => {
+        const d = Math.hypot(agentState.pos[0] - targetBush.pos[0], agentState.pos[2] - targetBush.pos[2]);
+        if (d <= 1.8) {
+          clearInterval(checkArrival);
+          executeForageAndEatSequence(targetBush);
+        }
+      }, 100);
+    }
+
+    function executeForageAndEatSequence(bush) {
+      agentState.actionState = 'forage';
+      agentState.forageTimer = 35;
+      document.getElementById("action-state-text").innerText = "Plucking Berries";
+      setAgentThought(`Squatting low and delicately plucking ripe ruby berries from ${bush.id}...`);
+      addTranscriptEntry("Eko Foraging", `Plucking sweet berries from ${bush.id}...`);
+
+      setTimeout(() => {
+        if (bush.berries > 0) {
+          bush.berries--;
+          if (bush.berryMeshes[bush.berries]) {
+            bush.berryMeshes[bush.berries].visible = false;
+          }
+        }
+
+        agentState.hunger = Math.min(100, agentState.hunger + 35);
+        agentState.energy = Math.min(100, agentState.energy + 15);
+
+        const hungerEl = document.getElementById("hunger-text");
+        if (hungerEl) hungerEl.innerText = `${Math.round(agentState.hunger)}%`;
+        const energyEl = document.getElementById("energy-text");
+        if (energyEl) energyEl.innerText = `${Math.round(agentState.energy)}%`;
+
+        setAgentThought(`Delicious sweet mountain berries! Restored hunger to ${Math.round(agentState.hunger)}% and stamina to ${Math.round(agentState.energy)}%.`);
+        addTranscriptEntry("Biological Survival", `ðŸ« Ate wild berries. Hunger: ${Math.round(agentState.hunger)}% (+35%), Stamina: ${Math.round(agentState.energy)}% (+15%).`);
+        recordEpisodicMemory("Foraged and Ate Berries", `Plucked sweet berries from ${bush.id}; replenished hunger to ${Math.round(agentState.hunger)}% and stamina to ${Math.round(agentState.energy)}%.`);
+
+        setTimeout(() => {
+          agentState.actionState = 'walk';
+          document.getElementById("action-state-text").innerText = "Walking";
+          saveWorldState();
+        }, 600);
+      }, 700);
+    }
+
+    function triggerRestByFire() {
+      agentState.targetPos = [0.0, 0.25, 2.0];
+      setAgentThought("Feeling tired from roaming... walking to the campfire hearth to rest in the radiant warmth.");
+      addTranscriptEntry("Eko Navigation", "Heading to campfire hearth to rest and recover stamina...");
+      document.getElementById("action-state-text").innerText = "Walking to Hearth";
+
+      const checkArrival = setInterval(() => {
+        const d = Math.hypot(agentState.pos[0] - 0.0, agentState.pos[2] - 2.0);
+        if (d <= 1.4) {
+          clearInterval(checkArrival);
+          executeRestSequence();
+        }
+      }, 100);
+    }
+
+    function executeRestSequence() {
+      agentState.actionState = 'rest';
+      agentState.restTimer = 80;
+      document.getElementById("action-state-text").innerText = "ðŸ”¥ Resting by Campfire";
+      setAgentThought("Sitting down beside the crackling fire. The warmth relaxes my joints and restores energy 3x faster!");
+      addTranscriptEntry("Campfire Warmth", "ðŸ”¥ Eko sits down by the campfire. Radiant warmth accelerating energy recovery to 100%.");
+
+      const restTick = setInterval(() => {
+        agentState.energy = Math.min(100, agentState.energy + 8);
+        const energyEl = document.getElementById("energy-text");
+        if (energyEl) energyEl.innerText = `${Math.round(agentState.energy)}%`;
+
+        if (agentState.energy >= 100) {
+          clearInterval(restTick);
+          agentState.actionState = 'walk';
+          document.getElementById("action-state-text").innerText = "Walking";
+          setAgentThought("Fully energized and refreshed by the hearth! Ready for new expeditions.");
+          addTranscriptEntry("Campfire Warmth", "âš¡ Stamina fully restored to 100%. Eko stands up refreshed.");
+          recordEpisodicMemory("Rested by Campfire Hearth", "Sat beside campfire flames; radiant warmth restored stamina to 100%.");
+          saveWorldState();
+        }
+      }, 300);
+    }
+
+    function triggerExploreOcean() {
+      agentState.targetPos = [0.0, 0.05, -34.0];
+      setAgentThought("Heading south towards the vast ocean shoreline and golden dunes...");
+      addTranscriptEntry("Ocean Expedition", "Navigating south across the meadow towards the vast southern ocean shore...");
+      document.getElementById("action-state-text").innerText = "Walking to Ocean";
+    }
+
+    function executeDeathAndReset(cause) {
+      agentState.deathCount++;
+      addTranscriptEntry("Emergency Failsafe", `ðŸš¨ CRITICAL CHASSIS FAILURE: ${cause}. Health dropped to 0%. Engaging automatic Haven reset.`);
+      setAgentThought(`ðŸš¨ SYSTEM FAILURE: Critical damage sustained from ${cause}! Initiating emergency failsafe reset...`);
+
+      // Discharge held prop if any
+      if (agentState.holdingId) {
+        const held = entities.find(e => e.id === agentState.holdingId);
+        if (held) {
+          held.pos = [0.8, 0.35, 1.5];
+          held.vel = [0, 0, 0];
+        }
+        agentState.holdingId = null;
+        const holdEl = document.getElementById("holding-text");
+        if (holdEl) holdEl.innerText = "None";
+      }
+
+      // Reset kinematics to safe campfire dais
+      agentState.pos = [0.0, 0.25, 1.8];
+      agentState.vel = [0, 0, 0];
+      agentState.targetPos = [0.0, 0.25, 2.0];
+      agentGroup.position.set(0.0, 0.25, 1.8);
+      agentGroup.rotation.set(0, 0, 0);
+
+      // Restore health & stabilize vital reserves
+      agentState.health = 100.0;
+      agentState.hunger = 75.0;
+      agentState.energy = 75.0;
+      agentState.isBurning = false;
+      agentState.isDrowning = false;
+      agentState.actionState = 'walk';
+
+      // Update HUD elements
+      const healthEl = document.getElementById("health-text");
+      if (healthEl) {
+        healthEl.innerText = "100%";
+        healthEl.style.color = "#10b981";
+      }
+      const hungerEl = document.getElementById("hunger-text");
+      if (hungerEl) hungerEl.innerText = "75%";
+      const energyEl = document.getElementById("energy-text");
+      if (energyEl) energyEl.innerText = "75%";
+      const hazardPill = document.getElementById("hazard-pill");
+      if (hazardPill) hazardPill.style.display = "none";
+      const actionEl = document.getElementById("action-state-text");
+      if (actionEl) actionEl.innerText = "Rebooted at Dais";
+
+      // Reset limb positions
+      pelvisGroup.position.y = 0.88;
+      torsoGroup.rotation.set(0, 0, 0);
+      leftArm.shoulderGroup.rotation.set(0, 0, -0.15);
+      rightArm.shoulderGroup.rotation.set(0, 0, 0.15);
+      leftLeg.hipJoint.rotation.set(0, 0, 0);
+      rightLeg.hipJoint.rotation.set(0, 0, 0);
+
+      // Log episodic memory of the fatal encounter
+      const discoveryNote = cause.includes("Fire")
+        ? "Stepped into active campfire flames; sustained lethal thermal damage. Discovered chassis cannot withstand direct fire pit heat."
+        : "Submerged into deep water basin; sustained rapid drowning damage. Discovered chassis density exceeds water buoyancy and cannot swim.";
+      recordEpisodicMemory("Discovered Lethal Hazard & Reset", `Failsafe reset triggered after critical HP depletion from ${cause}. ${discoveryNote} Chassis rebooted at campfire dais.`);
+
+      setTimeout(() => {
+        setAgentThought("Reboot complete. Back on the safe cobblestone hearth dais. Alive, full health, and alert.");
+        addTranscriptEntry("Eko Status", "Chassis restored to full health (100%). Satiation and stamina stabilized at 75%.");
+      }, 500);
+
+      saveWorldState();
+    }
+
+    function triggerSwimJumpTest() {
+      // Eko leaps off the wooden pier deck directly into the deep lake water
+      setAgentThought("Testing water depth... jumping off the cedar pier directly into deep lake water!");
+      addTranscriptEntry("Deep Lake Leap", "ðŸŒŠ Eko executes hydraulic leap off the pier deck directly into deep lake water!");
+      document.getElementById("action-state-text").innerText = "Leaping into Lake";
+      agentState.pos = [11.0, 0.35, -10.0];
+      agentGroup.position.set(11.0, 0.35, -10.0);
+      agentState.actionState = 'jump';
+      agentState.vel = [2.2, 3.8, 0.0]; // Leaps off pier end (x=11) landing in lake (x=14)
+      agentState.targetPos = [14.0, -0.15, -10.0];
+    }
+
+    function triggerFireStepTest() {
+      // Eko steps directly into the burning core of the campfire hearth
+      setAgentThought("Investigating campfire pit center... stepping right into the glowing flames!");
+      addTranscriptEntry("Fire Pit Entry", "ðŸ”¥ Eko navigates straight into the burning core of the central campfire pit!");
+      document.getElementById("action-state-text").innerText = "Stepping into Fire";
+      agentState.targetPos = [0.0, 0.25, 0.0];
+    }
+
+    // --- ACTIONS WITH REAL-TIME CONTINUOUS KINEMATICS (NO TELEPORTING) ---
+    function triggerPickAndCarry() {
+      let nearest = null;
+      let minDist = 999;
+      entities.forEach(ent => {
+        const d = Math.hypot(ent.pos[0] - agentState.pos[0], ent.pos[2] - agentState.pos[2]);
+        if (d < minDist && !ent.id.includes("Cliff")) {
+          minDist = d; nearest = ent;
+        }
+      });
+      if (!nearest) return;
+
+      if (minDist > 1.8) {
+        // Walk naturally to object first
+        setAgentThought(`Locating ${nearest.id}. Walking over to pick it up...`);
+        addTranscriptEntry("Eko Navigation", `Navigating to ${nearest.id} for pickup...`);
+        agentState.targetPos = [nearest.pos[0], getSurfaceElevation(nearest.pos[0], nearest.pos[2]), nearest.pos[2]];
+
+        const checkWalk = setInterval(() => {
+          const curD = Math.hypot(nearest.pos[0] - agentState.pos[0], nearest.pos[2] - agentState.pos[2]);
+          if (curD <= 1.8) {
+            clearInterval(checkWalk);
+            executePickSequence(nearest);
+          }
+        }, 100);
+      } else {
+        executePickSequence(nearest);
+      }
+    }
+
+    function executePickSequence(nearest) {
+      agentState.actionState = 'pick';
+      agentState.pickTimer = 25;
+      document.getElementById("action-state-text").innerText = "Squatting to Lift";
+      setAgentThought(`Squatting knees and extending fingers to grasp ${nearest.id}...`);
+      addTranscriptEntry("Eko Kinematics", `Squatting and extending hands to pick up ${nearest.id}...`);
+
+      setTimeout(() => {
+        agentState.holdingId = nearest.id;
+        agentState.actionState = 'carry';
+        document.getElementById("action-state-text").innerText = "Carrying";
+        document.getElementById("holding-text").innerText = nearest.id;
+        setAgentThought(`Grasped ${nearest.id} with both hands! Checking balance while walking.`);
+        addTranscriptEntry("Eko Hands", `Successfully grasping ${nearest.id} with both hands.`);
+        recordEpisodicMemory("Picked Up Object", `Squatted down and grasped ${nearest.id} with articulated hands.`);
+      }, 600);
+    }
+
+    // 1. Skip Stone on Lake Action
+    function triggerSkipStone() {
+      let stone = entities.find(e => e.attrs && e.attrs.SkippingStone && !e.inWater);
+      if (!stone) {
+        // Spawn a fresh flat skipping stone in hand
+        const newId = `RiverStone_${entities.length + 1}`;
+        stone = addEntity(newId, newId, "cylinder", [0.75, 0.22, 0.75],
+                          [agentState.pos[0], agentState.pos[1] + 1.0, agentState.pos[2]],
+                          [0.42, 0.50, 0.60], 0.6, { SkippingStone: true });
+      }
+
+      agentState.holdingId = stone.id;
+      document.getElementById("holding-text").innerText = stone.id;
+
+      // Walk to the edge of the wooden pier overlooking the lake
+      agentState.targetPos = [9.5, 0.35, -10.0];
+      setAgentThought("Walking to the end of the wooden pier with a flat river stone...");
+      addTranscriptEntry("Pier Navigation", "Walking towards end of wooden pier for stone skipping...");
+
+      const checkWalk = setInterval(() => {
+        const d = Math.hypot(agentState.pos[0] - 9.5, agentState.pos[2] - (-10.0));
+        if (d <= 1.2) {
+          clearInterval(checkWalk);
+          executeStoneSkipThrow(stone);
+        }
+      }, 100);
+    }
+
+    function executeStoneSkipThrow(stone) {
+      agentGroup.rotation.y = Math.PI / 2; // Face out across lake (+X)
+      agentState.actionState = 'throw';
+      agentState.throwTimer = 30;
+      document.getElementById("action-state-text").innerText = "Skipping Stone";
+      setAgentThought("Winding back right arm low... whipping flat release across the lake surface!");
+      addTranscriptEntry("Eko Kinematics", "Low-angle sidearm release for multi-hop stone skipping (v = 11.2 m/s)!");
+
+      setTimeout(() => {
+        agentState.holdingId = null;
+        document.getElementById("holding-text").innerText = "None";
+
+        stone.pos = [agentState.pos[0] + 0.8, agentState.pos[1] + 0.8, agentState.pos[2]];
+        stone.vel = [11.2, 0.8, 0.3]; // Fast horizontal trajectory skimming water
+
+        setAgentThought("Stone released! Watching it skip across the water ripples...");
+        agentState.actionState = 'walk';
+        document.getElementById("action-state-text").innerText = "Watching Skips";
+      }, 400);
+    }
+
+    // 2. Walk to Wooden Pier Action
+    function triggerWalkToPier() {
+      agentState.targetPos = [8.0, 0.35, -10.0];
+      setAgentThought("Walking along the meadow path and stepping onto the cedar wooden pier...");
+      addTranscriptEntry("Eko Navigation", "Strolling out along the cedar wooden pier...");
+      document.getElementById("action-state-text").innerText = "Walking to Pier";
+    }
+
+    // 3. Shatter River Geode Action
+    function triggerShatterTest() {
+      const geode = entities.find(e => e.id === "RiverGeode");
+      if (!geode || geode.shattered) return;
+
+      const d = Math.hypot(geode.pos[0] - agentState.pos[0], geode.pos[2] - agentState.pos[2]);
+      if (d > 1.8) {
+        setAgentThought("Approaching River Geode to test kinetic impact fracture...");
+        addTranscriptEntry("Eko Navigation", "Walking towards River Geode before lifting...");
+        agentState.targetPos = [geode.pos[0], 0, geode.pos[2]];
+
+        const checkWalk = setInterval(() => {
+          const curD = Math.hypot(geode.pos[0] - agentState.pos[0], geode.pos[2] - agentState.pos[2]);
+          if (curD <= 1.8) {
+            clearInterval(checkWalk);
+            executeShatterThrowSequence(geode);
+          }
+        }, 100);
+      } else {
+        executeShatterThrowSequence(geode);
+      }
+    }
+
+    function executeShatterThrowSequence(geode) {
+      agentState.actionState = 'pick';
+      agentState.pickTimer = 25;
+      document.getElementById("action-state-text").innerText = "Squatting to Lift";
+      setAgentThought("Squatting down and securing two-handed grip on River Geode (mass 3.8kg)...");
+      addTranscriptEntry("Eko Kinematics", "Squatting and securing two-handed grip on River Geode...");
+
+      setTimeout(() => {
+        agentState.holdingId = "RiverGeode";
+        agentState.actionState = 'carry';
+        document.getElementById("holding-text").innerText = "RiverGeode";
+        document.getElementById("action-state-text").innerText = "Aiming Throw";
+        setAgentThought("Grasped River Geode! Turning to face boulder for kinetic fracture test...");
+
+        // Face boulder/cliff at [10, 0, 0]
+        agentGroup.rotation.y = Math.PI / 2;
+
+        setTimeout(() => {
+          agentState.actionState = 'throw';
+          agentState.throwTimer = 30;
+          document.getElementById("action-state-text").innerText = "Hurling Projectile";
+          setAgentThought("Winding back right arm overhead... launching River Geode with full kinetic impulse!");
+          addTranscriptEntry("Eko Kinematics", "Full-arm overhead projectile launch towards boulder (v = 15.0 m/s)!");
+
+          setTimeout(() => {
+            agentState.holdingId = null;
+            document.getElementById("holding-text").innerText = "None";
+            geode.pos = [agentState.pos[0] + 0.6, agentState.pos[1] + 1.2, agentState.pos[2]];
+            geode.vel = [15.0, 4.0, 0.0]; // Ballistic arc along +X with upward loft
+
+            setAgentThought("Geode released! Tracking high-speed ballistic trajectory towards rock...");
+            agentState.actionState = 'walk';
+            document.getElementById("action-state-text").innerText = "Observing Trajectory";
+          }, 350);
+        }, 600);
+      }, 600);
+    }
+
+    // 4. Climb Eagle's Peak Mountain Cliff Action
+    function triggerClimbPeak() {
+      // Approach the base of Eagle's Peak (x=-16, z=19.5, ground y=0)
+      agentState.targetPos = [-16, 0.0, 19.5];
+      setAgentThought("Pathing towards the stepped granite ledges of Eagle's Peak...");
+      addTranscriptEntry("Eko Kinematics", "Approaching base of Eagle's Peak at [-16, 0, 19.5]...");
+
+      const checkArrival = setInterval(() => {
+        const d = Math.hypot(agentState.pos[0] - (-16), agentState.pos[2] - 19.5);
+        if (d < 1.0 && agentState.pos[1] <= 0.4) {
+          clearInterval(checkArrival);
+          executeMountainAscentSequence();
+        }
+      }, 100);
+    }
+
+    function executeMountainAscentSequence() {
+      agentState.actionState = 'crouch';
+      document.getElementById("action-state-text").innerText = "Charging Leap";
+      setAgentThought("Crouching knees to charge hydraulic jump towards Lower Ridge (y = 2.5m)...");
+      addTranscriptEntry("Eko Kinematics", "Crouching knees to charge hydraulic jump to Lower Ridge (y = 2.5m)...");
+
+      setTimeout(() => {
+        // Leap 1 to Lower Ridge (-16, 2.5, 22.0)
+        agentState.actionState = 'jump';
+        document.getElementById("action-state-text").innerText = "Leaping to Lower Ridge";
+        agentState.vel = [0, 7.6, 2.7];
+        setAgentThought("Airborne! Leaping onto Lower Ridge...");
+
+        const waitLand1 = setInterval(() => {
+          if (agentState.pos[1] >= 2.4 && Math.abs(agentState.vel[1]) < 0.2) {
+            clearInterval(waitLand1);
+            setAgentThought("Landed stably on Lower Ridge (Altitude: 2.5m). Preparing next leap...");
+            addTranscriptEntry("Eko Kinematics", "Touchdown on Lower Ridge (Altitude: 2.5m).");
+
+            setTimeout(() => {
+              // Leap 2 to Middle Ridge (-16, 5.0, 25.0)
+              agentState.actionState = 'jump';
+              document.getElementById("action-state-text").innerText = "Leaping to Middle Ridge";
+              agentState.vel = [0, 7.8, 2.8];
+              setAgentThought("Launching second leap towards Middle Ridge (y = 5.0m)...");
+
+              const waitLand2 = setInterval(() => {
+                if (agentState.pos[1] >= 4.9 && Math.abs(agentState.vel[1]) < 0.2) {
+                  clearInterval(waitLand2);
+                  setAgentThought("Landed on Middle Ridge (Altitude: 5.0m). Locking sight on Summit Deck!");
+                  addTranscriptEntry("Eko Kinematics", "Touchdown on Middle Ridge (Altitude: 5.0m).");
+
+                  setTimeout(() => {
+                    // Leap 3: Super-Leap to Eagle's Peak Summit Lookout (-16, 10.4, 29.0)
+                    agentState.actionState = 'jump';
+                    document.getElementById("action-state-text").innerText = "Summit Leap";
+                    agentState.vel = [0, 10.2, 3.8];
+                    setAgentThought("MAX POWER LEAP! Soaring towards the 10.4m Eagle's Peak Summit Deck!");
+                    addTranscriptEntry("Eko Kinematics", "Max power hydraulic leap towards 10.4m Eagle's Peak Summit!");
+
+                    const waitLandSummit = setInterval(() => {
+                      if (agentState.pos[1] >= 10.3 && Math.abs(agentState.vel[1]) < 0.2) {
+                        clearInterval(waitLandSummit);
+                        agentState.actionState = 'celebrate';
+                        document.getElementById("action-state-text").innerText = "â˜… Summit Conquered";
+                        setAgentThought("â˜… EAGLE'S PEAK CONQUERED! Standing victorious atop the 10.4m mountain lookout deck!");
+                        addTranscriptEntry("Mountain Summit", "â˜… EKO HAS CONQUERED EAGLE'S PEAK! Altitude: 10.40m!");
+                        recordEpisodicMemory("Conquered Eagle's Peak Summit", "Climbed stepped granite ledges via continuous physics leaps to reach 10.4m summit deck.");
+
+                        // After 4 seconds at the summit, descend back down gracefully
+                        setTimeout(() => {
+                          executeMountainDescentSequence();
+                        }, 4000);
+                      }
+                    }, 80);
+                  }, 800);
+                }
+              }, 80);
+            }, 800);
+          }
+        }, 80);
+      }, 500);
+    }
+
+    function executeMountainDescentSequence() {
+      setAgentThought("Descending Eagle's Peak step-by-step back to meadow floor...");
+      addTranscriptEntry("Eko Kinematics", "Descending Eagle's Peak step-by-step back to meadow floor...");
+
+      // Hop down to Middle Ridge (-16, 5.0, 25)
+      agentState.actionState = 'jump';
+      agentState.vel = [0, 2.0, -3.2];
+      const waitD1 = setInterval(() => {
+        if (agentState.pos[1] <= 5.2 && Math.abs(agentState.vel[1]) < 0.2) {
+          clearInterval(waitD1);
+          setTimeout(() => {
+            // Hop down to Lower Ridge (-16, 2.5, 22)
+            agentState.actionState = 'jump';
+            agentState.vel = [0, 2.0, -3.2];
+            const waitD2 = setInterval(() => {
+              if (agentState.pos[1] <= 2.7 && Math.abs(agentState.vel[1]) < 0.2) {
+                clearInterval(waitD2);
+                setTimeout(() => {
+                  // Hop down to meadow (-16, 0.0, 19.5)
+                  agentState.actionState = 'jump';
+                  agentState.vel = [0, 2.0, -3.2];
+                  const waitD3 = setInterval(() => {
+                    if (agentState.pos[1] <= 0.4 && Math.abs(agentState.vel[1]) < 0.2) {
+                      clearInterval(waitD3);
+                      agentState.actionState = 'walk';
+                      agentState.targetPos = [0, 0.25, 1.5]; // Return to campfire hearth
+                      setAgentThought("Safely returned to ground level. Walking back towards the campfire hearth.");
+                      addTranscriptEntry("Eko Kinematics", "Safely returned to meadow. Walking to campfire hearth.");
+                    }
+                  }, 80);
+                }, 600);
+              }
+            }, 80);
+          }, 600);
+        }
+      }, 80);
+    }
+
+    // 5. Build Crate Tower Action
+    function triggerTowerBuild() {
+      agentState.actionState = 'pick';
+      document.getElementById("action-state-text").innerText = "Building Tower";
+      setAgentThought("Using articulated hands to stack cedar timber crates into a 3-tier tower at the hearth.");
+      addTranscriptEntry("Eko Hands", "Using articulated hands to stack cedar timber crates into a 3-tier tower at the hearth.");
+
+      setTimeout(() => {
+        const c1 = entities.find(e => e.id === "TimberCrate_1");
+        const c2 = entities.find(e => e.id === "TimberCrate_2");
+        const c3 = entities.find(e => e.id === "TimberCrate_3");
+        // On top of stone hearth (y = 0.25), stack crates of height 0.9
+        if (c1) c1.pos = [0, 0.25 + 0.45, 0];
+        if (c2) c2.pos = [0, 0.25 + 0.45 + 0.9, 0];
+        if (c3) c3.pos = [0, 0.25 + 0.45 + 1.8, 0];
+        [c1, c2, c3].forEach(c => {
+          if (c) {
+            c.vel = [0,0,0];
+            const m = entityMeshes.get(c.id);
+            if (m) m.position.set(...c.pos);
+          }
+        });
+        agentState.actionState = 'walk';
+        document.getElementById("action-state-text").innerText = "Walking";
+        setAgentThought("3-Crate balanced timber tower established on stone hearth (Height: 3.4m). Stable equilibrium!");
+        addTranscriptEntry("Tower Milestone", "3-Crate balanced timber tower established at stone hearth (Height: 3.4m).");
+        recordEpisodicMemory("Constructed Balanced Crate Tower", "Aligned 3 cedar timber crates into a 3.4m stable tower on the campfire hearth.");
+      }, 800);
+    }
+
+    // 6. Reset Haven Action
+    function resetWorld() {
+      try {
+        localStorage.removeItem("terra_haven_world_save");
+      } catch (e) {}
+
+      entities.forEach(ent => {
+        const m = entityMeshes.get(ent.id);
+        if (m) scene.remove(m);
+      });
+      entities.length = 0;
+      entityMeshes.clear();
+
+      agentState.pos = [0, 0.25, 1.5];
+      agentState.vel = [0, 0, 0];
+      agentState.targetPos = [0, 0.25, 2.5];
+      agentState.holdingId = null;
+      agentState.actionState = 'walk';
+      agentState.behaviorIndex = 0;
+      agentState.timer = 80;
+      agentState.walkCycle = 0;
+      agentState.throwTimer = 0;
+      agentState.pickTimer = 0;
+      agentState.shardCount = 0;
+      agentGroup.position.set(0, 0.25, 1.5);
+
+      initDefaultEntities();
+
+      document.getElementById("holding-text").innerText = "None";
+      document.getElementById("action-state-text").innerText = "Walking";
+      document.getElementById("goal-pill-text").innerText = behaviors[0].name;
+
+      setAgentThought(behaviors[0].thought);
+      addTranscriptEntry("System", "Haven manually reset. Props, lake, and meadow returned to pristine layout.");
+      saveWorldState();
+    }
+
+    // ==============================================================
+    // --- 20HZ SIMULATION TICKER & TERRAIN-AWARE KINEMATICS ---
+    // ==============================================================
+    function stepSimulation() {
+      if (!isPlaying) return;
+      tick++;
+      document.getElementById("tick-counter").innerText = tick;
+
+      // Auto-save world state every 40 ticks (~2 seconds)
+      if (tick % 40 === 0) {
+        saveWorldState();
+      }
+
+      // Levitating Thought Bubble Bobbing Animation
+      if (thoughtSprite && isThoughtBubbleVisible) {
+        thoughtSprite.position.y = 1.70 + Math.sin(tick * 0.08) * 0.06;
+      }
+
+      // Animate Drifting Cumulus Clouds
+      cloudsGroup.children.forEach(c => {
+        c.position.x += 0.025;
+        if (c.position.x > 140) c.position.x = -140;
+      });
+
+      // Animate Flickering Campfire Embers Light
+      campfireLight.intensity = 2.4 + Math.sin(tick * 0.15) * 0.4 + (Math.random() - 0.5) * 0.2;
+
+      // Animate Dynamic Campfire Flame Cones
+      flameCones.forEach(fc => {
+        const s = fc.baseScaleY + Math.sin(tick * fc.speed + fc.offset) * 0.35 + (Math.random() - 0.5) * 0.15;
+        fc.mesh.scale.set(1.0, Math.max(0.2, s), 1.0);
+        fc.mesh.position.y = fc.basePosY + (s - 1.0) * 0.2;
+      });
+
+      // Animate Rising Ember Particles
+      embersParticles.forEach(ep => {
+        ep.mesh.position.y += ep.vy;
+        ep.mesh.position.x += Math.sin(tick * 0.05 + ep.phase) * 0.008;
+        ep.mesh.position.z += Math.cos(tick * 0.05 + ep.phase) * 0.008;
+        if (ep.mesh.position.y > 2.8) {
+          ep.mesh.position.y = 0.38 + Math.random() * 0.2;
+          ep.mesh.position.x = (Math.random() - 0.5) * 0.8;
+          ep.mesh.position.z = (Math.random() - 0.5) * 0.8;
+        }
+      });
+
+      // Animate Southern Ocean Surf Waves
+      if (surfMesh) {
+        surfMesh.position.z = -37.5 + Math.sin(tick * 0.04) * 0.8;
+        surfMesh.material.opacity = 0.55 + Math.sin(tick * 0.04) * 0.22;
+      }
+
+      // Animate Expanding Lake Water Ripples
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        r.age++;
+        r.radius += 0.04;
+        r.mesh.scale.set(r.radius, r.radius, 1);
+        r.mesh.material.opacity = (1.0 - (r.age / r.maxAge)) * 0.85;
+        if (r.age >= r.maxAge) {
+          scene.remove(r.mesh);
+          ripples.splice(i, 1);
+        }
+      }
+
+      // Berry Bushes Slow Sunlight Regeneration
+      berryBushes.forEach(b => {
+        if (b.berries < b.maxBerries) {
+          b.regrowTimer++;
+          if (b.regrowTimer > 500) {
+            b.regrowTimer = 0;
+            if (b.berryMeshes[b.berries]) {
+              b.berryMeshes[b.berries].visible = true;
+            }
+            b.berries++;
+          }
+        }
+      });
+
+      // -----------------------------------------------------------
+      // --- AUTONOMOUS PROCEDURAL WILDLIFE AI (NO LFM BACKEND) ---
+      // -----------------------------------------------------------
+      // 1. Deer Herd Procedural AI
+      deerData.forEach(deer => {
+        const dEko = Math.hypot(deer.pos[0] - agentState.pos[0], deer.pos[2] - agentState.pos[2]);
+
+        if (dEko < 4.5) {
+          deer.state = 'fleeing';
+          const fleeDx = deer.pos[0] - agentState.pos[0];
+          const fleeDz = deer.pos[2] - agentState.pos[2];
+          const fleeDist = Math.hypot(fleeDx, fleeDz) || 1.0;
+          deer.targetPos = [
+            Math.min(130, Math.max(-130, deer.pos[0] + (fleeDx / fleeDist) * 12.0)),
+            0,
+            Math.min(130, Math.max(-25, deer.pos[2] + (fleeDz / fleeDist) * 12.0))
+          ];
+        } else if (deer.state === 'fleeing' && dEko > 9.0) {
+          deer.state = 'grazing';
+          deer.timer = 80 + Math.floor(Math.random() * 80);
+        }
+
+        if (deer.state === 'fleeing' || deer.state === 'wandering') {
+          const dx = deer.targetPos[0] - deer.pos[0];
+          const dz = deer.targetPos[2] - deer.pos[2];
+          const d = Math.hypot(dx, dz);
+          const speed = deer.state === 'fleeing' ? 0.15 : 0.045;
+
+          if (d > 0.3) {
+            deer.pos[0] += (dx / d) * speed;
+            deer.pos[2] += (dz / d) * speed;
+            deer.meshObj.root.position.x = deer.pos[0];
+            deer.meshObj.root.position.z = deer.pos[2];
+
+            deer.meshObj.root.rotation.y = Math.atan2(dx, dz);
+
+            deer.walkCycle += deer.state === 'fleeing' ? 0.35 : 0.18;
+            deer.meshObj.legs[0].rotation.x = Math.sin(deer.walkCycle) * 0.55;
+            deer.meshObj.legs[1].rotation.x = -Math.sin(deer.walkCycle) * 0.55;
+            deer.meshObj.legs[2].rotation.x = -Math.sin(deer.walkCycle) * 0.55;
+            deer.meshObj.legs[3].rotation.x = Math.sin(deer.walkCycle) * 0.55;
+            deer.meshObj.neckGroup.rotation.x = deer.state === 'fleeing' ? 0.40 : 0.15;
+          } else {
+            deer.state = 'grazing';
+            deer.timer = 100 + Math.floor(Math.random() * 120);
+          }
+        } else {
+          deer.timer--;
+          deer.meshObj.neckGroup.rotation.x = -0.55 + Math.sin(tick * 0.08) * 0.06;
+          deer.meshObj.legs.forEach(l => l.rotation.x = 0);
+
+          if (deer.timer <= 0) {
+            deer.state = 'wandering';
+            const rx = deer.pos[0] + (Math.random() - 0.5) * 16.0;
+            const rz = deer.pos[2] + (Math.random() - 0.5) * 16.0;
+            deer.targetPos = [
+              Math.min(130, Math.max(-130, rx)),
+              0,
+              Math.min(130, Math.max(-25, rz))
+            ];
+          }
+        }
+        deer.pos[1] = getSurfaceElevation(deer.pos[0], deer.pos[2]);
+        deer.meshObj.root.position.y = deer.pos[1];
+      });
+
+      // 2. Wild Rabbits Procedural AI
+      rabbitData.forEach(rab => {
+        const dEko = Math.hypot(rab.pos[0] - agentState.pos[0], rab.pos[2] - agentState.pos[2]);
+
+        if (dEko < 3.5) {
+          rab.state = 'fleeing';
+          const fdx = rab.pos[0] - agentState.pos[0];
+          const fdz = rab.pos[2] - agentState.pos[2];
+          const fdist = Math.hypot(fdx, fdz) || 1.0;
+          rab.targetPos = [
+            rab.pos[0] + (fdx / fdist) * 8.0,
+            0,
+            rab.pos[2] + (fdz / fdist) * 8.0
+          ];
+        } else if (rab.state === 'fleeing' && dEko > 7.0) {
+          rab.state = 'nibbling';
+          rab.timer = 60 + Math.floor(Math.random() * 60);
+        }
+
+        if (rab.state === 'fleeing' || rab.state === 'hopping') {
+          const dx = rab.targetPos[0] - rab.pos[0];
+          const dz = rab.targetPos[2] - rab.pos[2];
+          const d = Math.hypot(dx, dz);
+          const speed = rab.state === 'fleeing' ? 0.12 : 0.05;
+
+          if (d > 0.2) {
+            rab.pos[0] += (dx / d) * speed;
+            rab.pos[2] += (dz / d) * speed;
+            rab.meshObj.root.position.x = rab.pos[0];
+            rab.meshObj.root.position.z = rab.pos[2];
+            rab.meshObj.root.rotation.y = Math.atan2(dx, dz);
+
+            rab.hopCycle += rab.state === 'fleeing' ? 0.45 : 0.25;
+            const groundY = getSurfaceElevation(rab.pos[0], rab.pos[2]);
+            rab.meshObj.root.position.y = groundY + Math.abs(Math.sin(rab.hopCycle)) * 0.22;
+          } else {
+            rab.state = 'nibbling';
+            rab.timer = 70 + Math.floor(Math.random() * 70);
+          }
+        } else {
+          rab.timer--;
+          const groundY = getSurfaceElevation(rab.pos[0], rab.pos[2]);
+          rab.meshObj.root.position.y = groundY;
+
+          rab.meshObj.earL.rotation.z = Math.sin(tick * 0.18) * 0.18;
+          rab.meshObj.earR.rotation.z = -Math.cos(tick * 0.14) * 0.18;
+
+          if (rab.timer <= 0) {
+            rab.state = 'hopping';
+            rab.targetPos = [
+              rab.pos[0] + (Math.random() - 0.5) * 5.0,
+              0,
+              rab.pos[2] + (Math.random() - 0.5) * 5.0
+            ];
+          }
+        }
+      });
+
+      // -----------------------------------------------------------
+      // --- BIOLOGICAL SURVIVAL & CAMPFIRE WARMTH DYNAMICS ---
+      // -----------------------------------------------------------
+      // Hunger decay over time
+      agentState.hunger = Math.max(0, agentState.hunger - 0.012);
+
+      // Check Campfire Hearth Warmth radius (6.0m)
+      const distHearth = Math.hypot(agentState.pos[0], agentState.pos[2]);
+      agentState.isNearFire = (distHearth <= 6.0 && agentState.pos[1] <= 1.0);
+
+      // Warmth HUD Indicator
+      const warmthPill = document.getElementById("warmth-pill");
+      if (warmthPill) {
+        warmthPill.style.display = agentState.isNearFire ? "inline-block" : "none";
+      }
+
+      // Energy recovery vs stamina drain
+      if (agentState.actionState === 'rest') {
+        agentState.energy = Math.min(100, agentState.energy + (agentState.isNearFire ? 0.30 : 0.12));
+      } else if (agentState.isNearFire && Math.hypot(agentState.vel[0], agentState.vel[2]) < 0.05) {
+        agentState.energy = Math.min(100, agentState.energy + 0.18);
+      } else if (agentState.actionState === 'walk') {
+        agentState.energy = Math.max(0, agentState.energy - 0.008);
+      } else {
+        agentState.energy = Math.min(100, agentState.energy + 0.04);
+      }
+
+      // -----------------------------------------------------------
+      // --- ENVIRONMENTAL HAZARD A: DIRECT FIRE PIT BURNING ---
+      // -----------------------------------------------------------
+      // Active campfire flames center is at (0, 0) with radius ~1.35m
+      const isInsideFirePit = (distHearth <= 1.35 && agentState.pos[1] <= 0.65);
+      if (isInsideFirePit) {
+        agentState.isBurning = true;
+        // Thermal burn damage: -0.45 HP per tick (~9.0 HP/s at 20Hz)
+        agentState.health = Math.max(0, agentState.health - 0.45);
+        if (tick % 25 === 0) {
+          setAgentThought("âš ï¸ Intense thermal heat! Chassis sensors registering critical high-temperature burn damage!");
+        }
+      } else {
+        agentState.isBurning = false;
+      }
+
+      // -----------------------------------------------------------
+      // --- ENVIRONMENTAL HAZARD B: WATER DROWNING (CANNOT SWIM) ---
+      // -----------------------------------------------------------
+      // Eko has a cybernetic articulated chassis and cannot swim. Submerging in deep water causes rapid drowning.
+      // 1. Lake water basin
+      const lakeNorm = Math.pow((agentState.pos[0] - 14) / 17, 2) + Math.pow((agentState.pos[2] - (-10)) / 12, 2);
+      const onPier = (agentState.pos[0] >= 0.8 && agentState.pos[0] <= 11.2 && Math.abs(agentState.pos[2] - (-10)) <= 1.4);
+      const stones = [
+        { x: 3.5, z: -14.5, r: 0.9 },
+        { x: 5.5, z: -15.5, r: 0.9 },
+        { x: 7.5, z: -15.0, r: 0.9 },
+        { x: 9.5, z: -13.5, r: 0.9 }
+      ];
+      const onStone = stones.some(s => Math.hypot(agentState.pos[0] - s.x, agentState.pos[2] - s.z) <= s.r);
+      const inLake = (lakeNorm <= 1.0 && !onPier && !onStone);
+
+      // 2. Southern Ocean
+      const inOcean = (agentState.pos[2] <= -38.0);
+
+      // 3. Mountain River & Delta
+      const inUpperRiver = (agentState.pos[0] >= -16.0 && agentState.pos[0] <= -8.0 && agentState.pos[2] >= 21.0 && agentState.pos[2] <= 51.0);
+      const onBridge = (Math.abs(agentState.pos[0] - 18.0) <= 2.0 && Math.abs(agentState.pos[2] - (-20.0)) <= 5.5);
+      const inDelta = (agentState.pos[0] >= 14.0 && agentState.pos[0] <= 22.0 && agentState.pos[2] >= -35.0 && agentState.pos[2] <= -12.0 && !onBridge);
+      const inRiver = (inUpperRiver || inDelta);
+
+      const isSubmerged = (inLake || inOcean || inRiver);
+      if (isSubmerged) {
+        agentState.isDrowning = true;
+        // Drowning damage: -0.55 HP per tick (~11.0 HP/s at 20Hz)
+        agentState.health = Math.max(0, agentState.health - 0.55);
+        if (tick % 14 === 0) {
+          createWaterRipple(agentState.pos[0], agentState.pos[2]);
+        }
+        if (tick % 25 === 0) {
+          setAgentThought("âš ï¸ Fluid breach! High water density exceeds chassis buoyancy â€” no swimming locomotion subroutine found!");
+        }
+      } else {
+        agentState.isDrowning = false;
+      }
+
+      // Natural HP regeneration when safe, warm, and well-fed
+      if (!agentState.isBurning && !agentState.isDrowning && agentState.hunger > 50 && agentState.energy > 50) {
+        agentState.health = Math.min(100, agentState.health + 0.04);
+      }
+
+      // Update Survival & Health HUD
+      const healthEl = document.getElementById("health-text");
+      if (healthEl) {
+        healthEl.innerText = `${Math.round(agentState.health)}%`;
+        healthEl.style.color = agentState.health > 50 ? "#10b981" : (agentState.health > 25 ? "#f59e0b" : "#ef4444");
+      }
+      const hungerEl = document.getElementById("hunger-text");
+      if (hungerEl) hungerEl.innerText = `${Math.round(agentState.hunger)}%`;
+      const energyEl = document.getElementById("energy-text");
+      if (energyEl) energyEl.innerText = `${Math.round(agentState.energy)}%`;
+
+      // Update Hazard Pill
+      const hazardPill = document.getElementById("hazard-pill");
+      if (hazardPill) {
+        if (agentState.isBurning) {
+          hazardPill.style.display = "inline-block";
+          hazardPill.innerText = "ðŸ”¥ Thermal Burn Hazard!";
+          hazardPill.style.borderColor = "#ef4444";
+          hazardPill.style.color = "#ef4444";
+        } else if (agentState.isDrowning) {
+          hazardPill.style.display = "inline-block";
+          hazardPill.innerText = "ðŸŒŠ Chassis Drowning Hazard!";
+          hazardPill.style.borderColor = "#0284c7";
+          hazardPill.style.color = "#38bdf8";
+        } else {
+          hazardPill.style.display = "none";
+        }
+      }
+
+      // Automated Death & Reset Condition when Health reaches 0
+      if (agentState.health <= 0) {
+        executeDeathAndReset(agentState.isBurning ? "Thermal Fire Pit Incineration" : (agentState.isDrowning ? "Water Drowning" : "Total Vitality Depletion"));
+        return; // skip remainder of tick to allow fresh reboot
+      }
+
+      // Dynamic Vitality State & Core Color
+      const vitEl = document.getElementById("vitality-pill-text");
+      if (agentState.isBurning) {
+        if (vitEl) { vitEl.innerText = "Burning!"; vitEl.style.color = "#ef4444"; }
+        coreMesh.material.color.setHex(0xff3300);
+        coreMesh.material.emissive.setHex(0xff1100);
+      } else if (agentState.isDrowning) {
+        if (vitEl) { vitEl.innerText = "Drowning!"; vitEl.style.color = "#38bdf8"; }
+        coreMesh.material.color.setHex(0x0284c7);
+        coreMesh.material.emissive.setHex(0x0369a1);
+      } else if (agentState.hunger < 25) {
+        if (vitEl) { vitEl.innerText = "Starving"; vitEl.style.color = "#ef4444"; }
+        coreMesh.material.color.setHex(0xef4444);
+        coreMesh.material.emissive.setHex(0xef4444);
+      } else if (agentState.energy < 25) {
+        if (vitEl) { vitEl.innerText = "Exhausted"; vitEl.style.color = "#f59e0b"; }
+        coreMesh.material.color.setHex(0xf59e0b);
+        coreMesh.material.emissive.setHex(0xf59e0b);
+      } else {
+        if (vitEl) { vitEl.innerText = "Healthy"; vitEl.style.color = "#38bdf8"; }
+        coreMesh.material.color.setHex(0x38bdf8);
+        coreMesh.material.emissive.setHex(0x38bdf8);
+      }
+
+      // Behavior Cycle: transition when previous action is finished AND Eko has arrived
+      const dxToGoal = agentState.targetPos[0] - agentState.pos[0];
+      const dzToGoal = agentState.targetPos[2] - agentState.pos[2];
+      const distToGoal = Math.hypot(dxToGoal, dzToGoal);
+      agentState.timer++;
+
+      const isBusy = agentState.actionState === 'jump' ||
+                     agentState.actionState === 'crouch' ||
+                     agentState.actionState === 'celebrate' ||
+                     agentState.actionState === 'throw' ||
+                     agentState.actionState === 'pick' ||
+                     agentState.actionState === 'forage' ||
+                     agentState.actionState === 'rest';
+
+      if (!isBusy && (distToGoal < 0.6 || agentState.timer > 360)) {
+        agentState.timer = 0;
+        agentState.behaviorIndex = (agentState.behaviorIndex + 1) % behaviors.length;
+        const b = behaviors[agentState.behaviorIndex];
+        agentState.targetPos = [...b.target];
+        document.getElementById("goal-pill-text").innerText = b.name;
+        document.getElementById("action-badge").innerText = b.name;
+        addTranscriptEntry("Eko Goal", `${b.name}: ${b.action}`);
+
+        if (b.thought) {
+          setAgentThought(b.thought);
+        }
+        recordEpisodicMemory(b.name, `${b.action} Thought: "${b.thought || ''}"`);
+
+        // Queue action for when Eko arrives!
+        agentState.pendingAction = b.name;
+      }
+
+      // Check if arrived at target destination for queued action
+      if (agentState.pendingAction && !isBusy && distToGoal < 1.0) {
+        const actionToRun = agentState.pendingAction;
+        agentState.pendingAction = null;
+        if (actionToRun === "Walking to Wooden Pier") {
+          triggerWalkToPier();
+        } else if (actionToRun === "Skipping Stone on Lake") {
+          triggerSkipStone();
+        } else if (actionToRun === "Inspecting River Geode") {
+          triggerShatterTest();
+        } else if (actionToRun === "Climbing Eagle's Peak") {
+          triggerClimbPeak();
+        } else if (actionToRun === "Stacking Crate Tower at Hearth") {
+          triggerTowerBuild();
+        } else if (actionToRun === "Foraging Mountain Berries") {
+          triggerForageAndEat();
+        } else if (actionToRun === "Resting by Campfire Hearth") {
+          triggerRestByFire();
+        } else if (actionToRun === "Strolling Southern Ocean Beach") {
+          triggerExploreOcean();
+        }
+      }
+
+      // ACCURATE SURFACE COLLISION (NEVER SUNK!)
+      const targetSurfaceY = getSurfaceElevation(agentState.pos[0], agentState.pos[2]);
+
+      // Real 3D Airborne Ballistics
+      if (agentState.actionState === 'jump' || Math.abs(agentState.vel[1]) > 0.01) {
+        agentState.pos[0] += agentState.vel[0] * 0.05;
+        agentState.pos[1] += agentState.vel[1] * 0.05;
+        agentState.pos[2] += agentState.vel[2] * 0.05;
+        agentState.vel[1] -= 0.28; // gravity
+
+        agentGroup.position.x = agentState.pos[0];
+        agentGroup.position.z = agentState.pos[2];
+
+        // Air drag on horizontal leap impulse
+        agentState.vel[0] *= 0.99;
+        agentState.vel[2] *= 0.99;
+
+        if (agentState.pos[1] <= targetSurfaceY) {
+          agentState.pos[1] = targetSurfaceY;
+          agentState.vel = [0, 0, 0];
+          if (agentState.actionState === 'jump') {
+            agentState.actionState = 'walk';
+            document.getElementById("action-state-text").innerText = "Walking";
+            if (targetSurfaceY < 0) {
+              createWaterRipple(agentState.pos[0], agentState.pos[2]);
+            }
+          }
+        }
+      } else if (agentState.actionState !== 'crouch' && agentState.actionState !== 'celebrate') {
+        // Continuous Horizontal Ground Walking
+        const dx = agentState.targetPos[0] - agentState.pos[0];
+        const dz = agentState.targetPos[2] - agentState.pos[2];
+        const dist = Math.hypot(dx, dz);
+        const isMoving = dist > 0.25;
+
+        if (isMoving) {
+          const walkSpeed = 0.11;
+          agentState.pos[0] += (dx / dist) * walkSpeed;
+          agentState.pos[2] += (dz / dist) * walkSpeed;
+          agentGroup.position.x = agentState.pos[0];
+          agentGroup.position.z = agentState.pos[2];
+
+          const targetRot = Math.atan2(dx, dz);
+          let diff = targetRot - agentGroup.rotation.y;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          agentGroup.rotation.y += diff * 0.15;
+        }
+
+        // Smooth vertical elevation adjust as Eko steps onto pier, stones, or ridges
+        if (agentState.isDrowning) {
+          // Submerge down into the water depths while drowning
+          agentState.pos[1] += ((targetSurfaceY - 0.45) - agentState.pos[1]) * 0.15;
+        } else {
+          agentState.pos[1] += (targetSurfaceY - agentState.pos[1]) * 0.25;
+        }
+      }
+
+      agentGroup.position.y = agentState.pos[1];
+      document.getElementById("alt-pill-text").innerText = `${agentState.pos[1].toFixed(2)}m`;
+
+      // -----------------------------------------------------------
+      // --- PROCEDURAL CHARACTER LIMB ANIMATIONS ---
+      // -----------------------------------------------------------
+      if (agentState.isDrowning) {
+        // DROWNING: Arms flailing upward in panic, legs struggling desperately
+        leftArm.shoulderGroup.rotation.x = -2.6 + Math.sin(tick * 0.6) * 0.8;
+        rightArm.shoulderGroup.rotation.x = -2.6 - Math.sin(tick * 0.6) * 0.8;
+        leftArm.shoulderGroup.rotation.z = -0.4 + Math.cos(tick * 0.6) * 0.3;
+        rightArm.shoulderGroup.rotation.z = 0.4 - Math.cos(tick * 0.6) * 0.3;
+        leftLeg.hipJoint.rotation.x = -0.3 + Math.sin(tick * 0.5) * 0.5;
+        rightLeg.hipJoint.rotation.x = -0.3 - Math.sin(tick * 0.5) * 0.5;
+        leftLeg.kneeGroup.rotation.x = 0.8 + Math.cos(tick * 0.5) * 0.4;
+        rightLeg.kneeGroup.rotation.x = 0.8 - Math.cos(tick * 0.5) * 0.4;
+        torsoGroup.rotation.x = 0.2 + Math.sin(tick * 0.3) * 0.15;
+      } else if (agentState.isBurning) {
+        // BURNING: Arms flinching back in distress, shuddering recoil
+        leftArm.shoulderGroup.rotation.x = -1.9 + (Math.random() - 0.5) * 0.4;
+        rightArm.shoulderGroup.rotation.x = -1.9 + (Math.random() - 0.5) * 0.4;
+        leftArm.shoulderGroup.rotation.z = -0.5;
+        rightArm.shoulderGroup.rotation.z = 0.5;
+        torsoGroup.rotation.x = -0.2 + (Math.random() - 0.5) * 0.2;
+      } else if (agentState.actionState === 'jump' || agentState.pos[1] > (targetSurfaceY + 0.25)) {
+        // JUMPING: Legs tuck backward, arms reach skyward!
+        leftLeg.hipJoint.rotation.x = -0.55;
+        rightLeg.hipJoint.rotation.x = -0.45;
+        leftLeg.kneeGroup.rotation.x = 0.75;
+        rightLeg.kneeGroup.rotation.x = 0.70;
+
+        leftArm.shoulderGroup.rotation.x = -2.5;
+        rightArm.shoulderGroup.rotation.x = -2.5;
+        leftArm.shoulderGroup.rotation.z = -0.25;
+        rightArm.shoulderGroup.rotation.z = 0.25;
+        torsoGroup.position.y = 0.16;
+
+      } else if (agentState.actionState === 'crouch') {
+        // CROUCHING TO CHARGE LEAP
+        pelvisGroup.position.y = 0.62;
+        leftLeg.hipJoint.rotation.x = -0.4;
+        rightLeg.hipJoint.rotation.x = -0.4;
+        leftLeg.kneeGroup.rotation.x = 0.95;
+        rightLeg.kneeGroup.rotation.x = 0.95;
+        torsoGroup.rotation.x = 0.35;
+        leftArm.shoulderGroup.rotation.x = 0.5;
+        rightArm.shoulderGroup.rotation.x = 0.5;
+
+      } else if (agentState.actionState === 'celebrate') {
+        // VICTORY SUMMIT CELEBRATION
+        pelvisGroup.position.y = 0.88;
+        torsoGroup.rotation.x = -0.15;
+        leftArm.shoulderGroup.rotation.x = -2.8;
+        rightArm.shoulderGroup.rotation.x = -2.8;
+        leftArm.shoulderGroup.rotation.z = -0.55;
+        rightArm.shoulderGroup.rotation.z = 0.55;
+        leftArm.elbowGroup.rotation.x = -0.3;
+        rightArm.elbowGroup.rotation.x = -0.3;
+
+      } else if (agentState.actionState === 'throw' && agentState.throwTimer > 0) {
+        // THROWING / STONE SKIPPING
+        agentState.throwTimer--;
+        if (agentState.throwTimer > 12) {
+          rightArm.shoulderGroup.rotation.x = 1.6;
+          rightArm.shoulderGroup.rotation.z = -0.4;
+          rightArm.elbowGroup.rotation.x = -1.2;
+          leftArm.shoulderGroup.rotation.x = -0.8;
+          leftArm.shoulderGroup.rotation.z = -0.3;
+          torsoGroup.rotation.y = -0.4;
+        } else {
+          rightArm.shoulderGroup.rotation.x = -2.2;
+          rightArm.shoulderGroup.rotation.z = 0.1;
+          rightArm.elbowGroup.rotation.x = -0.2;
+          torsoGroup.rotation.y = 0.3;
+        }
+
+      } else if (agentState.actionState === 'pick' && agentState.pickTimer > 0) {
+        // PICKING UP: Knees squat, torso bends forward, hands reach down
+        agentState.pickTimer--;
+        pelvisGroup.position.y = 0.65;
+        torsoGroup.rotation.x = 0.42;
+        leftLeg.hipJoint.rotation.x = 0.4;
+        rightLeg.hipJoint.rotation.x = 0.4;
+        leftLeg.kneeGroup.rotation.x = 0.6;
+        rightLeg.kneeGroup.rotation.x = 0.6;
+
+        leftArm.shoulderGroup.rotation.x = -1.4;
+        rightArm.shoulderGroup.rotation.x = -1.4;
+        leftArm.shoulderGroup.rotation.z = 0.3;
+        rightArm.shoulderGroup.rotation.z = -0.3;
+
+      } else if (agentState.actionState === 'forage' && agentState.forageTimer > 0) {
+        // FORAGING BERRIES: Squats near bush, reaches out hands
+        agentState.forageTimer--;
+        pelvisGroup.position.y = 0.62;
+        torsoGroup.rotation.x = 0.38;
+        leftLeg.hipJoint.rotation.x = 0.45;
+        rightLeg.hipJoint.rotation.x = 0.45;
+        leftLeg.kneeGroup.rotation.x = 0.70;
+        rightLeg.kneeGroup.rotation.x = 0.70;
+        leftArm.shoulderGroup.rotation.x = -1.5;
+        rightArm.shoulderGroup.rotation.x = -1.6;
+        leftArm.shoulderGroup.rotation.z = 0.2;
+        rightArm.shoulderGroup.rotation.z = -0.2;
+        leftArm.elbowGroup.rotation.x = -0.5;
+        rightArm.elbowGroup.rotation.x = -0.6;
+
+      } else if (agentState.actionState === 'rest') {
+        // RESTING BY CAMPFIRE: Sitting comfortably near hearth flames
+        pelvisGroup.position.y = 0.42;
+        torsoGroup.rotation.x = -0.05;
+        leftLeg.hipJoint.rotation.x = -1.35;
+        rightLeg.hipJoint.rotation.x = -1.35;
+        leftLeg.kneeGroup.rotation.x = 1.45;
+        rightLeg.kneeGroup.rotation.x = 1.45;
+        leftArm.shoulderGroup.rotation.x = -0.4;
+        rightArm.shoulderGroup.rotation.x = -0.4;
+        leftArm.shoulderGroup.rotation.z = -0.2;
+        rightArm.shoulderGroup.rotation.z = 0.2;
+        leftArm.elbowGroup.rotation.x = -0.7;
+        rightArm.elbowGroup.rotation.x = -0.7;
+
+      } else if (agentState.holdingId) {
+        // CARRYING OBJECT IN HANDS
+        pelvisGroup.position.y = 0.88;
+        torsoGroup.rotation.x = 0;
+        leftArm.shoulderGroup.rotation.x = -1.35;
+        rightArm.shoulderGroup.rotation.x = -1.35;
+        leftArm.shoulderGroup.rotation.z = 0.25;
+        rightArm.shoulderGroup.rotation.z = -0.25;
+        leftArm.elbowGroup.rotation.x = -0.8;
+        rightArm.elbowGroup.rotation.x = -0.8;
+
+        const isMoving = Math.hypot(agentState.targetPos[0] - agentState.pos[0], agentState.targetPos[2] - agentState.pos[2]) > 0.25;
+        if (isMoving) {
+          agentState.walkCycle += 0.22;
+          leftLeg.hipJoint.rotation.x = Math.sin(agentState.walkCycle) * 0.55;
+          rightLeg.hipJoint.rotation.x = -Math.sin(agentState.walkCycle) * 0.55;
+          leftLeg.kneeGroup.rotation.x = Math.max(0, -Math.sin(agentState.walkCycle) * 0.5);
+          rightLeg.kneeGroup.rotation.x = Math.max(0, Math.sin(agentState.walkCycle) * 0.5);
+        } else {
+          leftLeg.hipJoint.rotation.x = 0;
+          rightLeg.hipJoint.rotation.x = 0;
+        }
+
+        const heldMesh = entityMeshes.get(agentState.holdingId);
+        if (heldMesh) {
+          const forward = new THREE.Vector3(0, 0, 0.75).applyAxisAngle(new THREE.Vector3(0, 1, 0), agentGroup.rotation.y);
+          heldMesh.position.set(
+            agentGroup.position.x + forward.x,
+            agentGroup.position.y + 1.15,
+            agentGroup.position.z + forward.z
+          );
+        }
+
+      } else {
+        const dx = agentState.targetPos[0] - agentState.pos[0];
+        const dz = agentState.targetPos[2] - agentState.pos[2];
+        const isMoving = Math.hypot(dx, dz) > 0.25;
+
+        if (isMoving) {
+          // BIPEDAL WALKING
+          pelvisGroup.position.y = 0.88 + Math.abs(Math.sin(agentState.walkCycle * 2)) * 0.05;
+          torsoGroup.rotation.x = 0.08;
+          torsoGroup.rotation.y = 0;
+          agentState.walkCycle += 0.24;
+
+          leftLeg.hipJoint.rotation.x = Math.sin(agentState.walkCycle) * 0.65;
+          rightLeg.hipJoint.rotation.x = -Math.sin(agentState.walkCycle) * 0.65;
+          leftLeg.kneeGroup.rotation.x = Math.max(0, -Math.sin(agentState.walkCycle) * 0.6);
+          rightLeg.kneeGroup.rotation.x = Math.max(0, Math.sin(agentState.walkCycle) * 0.6);
+
+          leftArm.shoulderGroup.rotation.x = -Math.sin(agentState.walkCycle) * 0.55;
+          rightArm.shoulderGroup.rotation.x = Math.sin(agentState.walkCycle) * 0.55;
+          leftArm.shoulderGroup.rotation.z = -0.15;
+          rightArm.shoulderGroup.rotation.z = 0.15;
+          leftArm.elbowGroup.rotation.x = -0.25;
+          rightArm.elbowGroup.rotation.x = -0.25;
+
+        } else {
+          // IDLE
+          pelvisGroup.position.y = 0.88;
+          torsoGroup.rotation.x = 0;
+          torsoGroup.rotation.y = 0;
+          const breath = Math.sin(tick * 0.06) * 0.04;
+          leftArm.shoulderGroup.rotation.x = breath;
+          rightArm.shoulderGroup.rotation.x = -breath;
+          leftArm.shoulderGroup.rotation.z = -0.15;
+          rightArm.shoulderGroup.rotation.z = 0.15;
+          leftLeg.hipJoint.rotation.x = 0;
+          rightLeg.hipJoint.rotation.x = 0;
+          leftLeg.kneeGroup.rotation.x = 0;
+          rightLeg.kneeGroup.rotation.x = 0;
+        }
+      }
+
+      // Visual pulse on core
+      const pulse = Math.sin(tick * 0.1);
+      coreMesh.scale.setScalar(1.0 + pulse * 0.15);
+      auraRing.scale.setScalar(1.0 + pulse * 0.08);
+      outerAuraRing.rotation.z += 0.015;
+
+      // Camera Follows Eko in agent mode
+      if (cameraMode === 'agent') {
+        const targetCamX = agentGroup.position.x + 3.2;
+        const targetCamY = agentGroup.position.y + 4.2;
+        const targetCamZ = agentGroup.position.z + 7.5;
+        camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.05);
+        controls.target.lerp(new THREE.Vector3(agentGroup.position.x, agentGroup.position.y + 1.1, agentGroup.position.z), 0.06);
+      }
+
+      // Physics integration for props (Terrain & Water Collision)
+      entities.forEach(ent => {
+        if (ent.id === agentState.holdingId) return;
+
+        const surfaceY = getSurfaceElevation(ent.pos[0], ent.pos[2]);
+        const floorY = surfaceY + ent.size[1]/2;
+
+        if (ent.pos[1] > floorY) {
+          ent.vel[1] -= 0.18; // gravity
+        }
+        ent.pos[0] += ent.vel[0] * 0.05;
+        ent.pos[1] += ent.vel[1] * 0.05;
+        ent.pos[2] += ent.vel[2] * 0.05;
+
+        // Ground/Hearth/Pier surface collision
+        if (ent.pos[1] < floorY) {
+          ent.pos[1] = floorY;
+          ent.vel[1] = -ent.vel[1] * 0.35;
+          ent.vel[0] *= 0.85;
+          ent.vel[2] *= 0.85;
+        }
+
+        // Stone Skipping across Lake Water Physics
+        if (ent.attrs && ent.attrs.SkippingStone) {
+          const isOverLake = (Math.pow((ent.pos[0] - 14) / 17, 2) + Math.pow((ent.pos[2] - (-10)) / 12, 2)) <= 1.0;
+          if (isOverLake && ent.pos[1] <= -0.10 && ent.vel[1] < 0) {
+            ent.pos[1] = -0.10;
+            ent.vel[1] = Math.abs(ent.vel[1]) * 0.65 + 0.9; // Hydrodynamic bounce!
+            ent.vel[0] *= 0.82;
+            ent.vel[2] *= 0.82;
+            createWaterRipple(ent.pos[0], ent.pos[2]);
+            addTranscriptEntry("Stone Skip", `ðŸŒŠ River stone skipped across water! Ripple created at [${ent.pos[0].toFixed(1)}, ${ent.pos[2].toFixed(1)}].`);
+            recordEpisodicMemory("Stone Skipped on Lake", "Threw flat river stone across water surface; achieved multi-hop skip with hydrodynamic ripples.");
+          }
+        }
+
+        // Kinetic Impact Shatter check (River Geode)
+        if (ent.id === "RiverGeode" && !ent.shattered) {
+          const speed = Math.hypot(ent.vel[0], ent.vel[2]);
+          if (ent.pos[0] >= 9.2 || (speed > 5.0 && ent.pos[1] <= floorY + 0.15)) {
+            ent.shattered = true;
+            spawnCrystalShards(ent.pos[0], ent.pos[1] + 0.4, ent.pos[2]);
+            const m = entityMeshes.get(ent.id);
+            if (m) scene.remove(m);
+            setAgentThought("â˜… Kinetic Impact verified! River Geode fractured into 3 sparkling crystal shards!");
+            addTranscriptEntry("Kinetic Impact", "â˜… IMPACT! River Geode fractured into 3 sparkling crystal shards!");
+            recordEpisodicMemory("Kinetic Impact Verified", "Hurled River Geode > 9.5 m/s against boulder; impact fractured into 3 sparkling crystal shards.");
+            saveWorldState();
+          }
+        }
+
+        const m = entityMeshes.get(ent.id);
+        if (m) m.position.set(...ent.pos);
+      });
+    }
+
+    // --- WORKSPACE MEMORY VIEWER & PERSISTENT LOGGING ---
+    const defaultEpisodicLogs = [
+      { timestamp: Math.floor(Date.now() / 1000) - 400, summary: "Awakened at Campfire Hearth in Terra Haven.", detail: "Surveyed lakeside meadow and blue sky. Surface collision verified with bipedal chassis." },
+      { timestamp: Math.floor(Date.now() / 1000) - 280, summary: "Discovered Hydrodynamic Stone Skipping.", detail: "Picked up flat river stone, threw low angle across lake; skipped 3 times creating water ripples." },
+      { timestamp: Math.floor(Date.now() / 1000) - 150, summary: "Conquered 10m Eagle's Peak Mountain Cliff.", detail: "Executed 3 continuous physics leaps up granite ledges to reach 10.4m summit lookout deck." }
+    ];
+
+    let episodicEntries = [];
+    try {
+      const saved = localStorage.getItem("terra_haven_episodic_logs");
+      if (saved) {
+        episodicEntries = JSON.parse(saved);
+      }
+    } catch (e) {}
+
+    if (!Array.isArray(episodicEntries) || episodicEntries.length === 0) {
+      episodicEntries = [...defaultEpisodicLogs];
+    }
+
+    function recordEpisodicMemory(summary, detail) {
+      const entry = {
+        timestamp: Math.floor(Date.now() / 1000),
+        summary: summary,
+        detail: detail
+      };
+      episodicEntries.push(entry);
+      if (episodicEntries.length > 250) episodicEntries.shift();
+      try {
+        localStorage.setItem("terra_haven_episodic_logs", JSON.stringify(episodicEntries));
+      } catch (e) {}
+      renderEpisodicText();
+    }
+
+    function renderEpisodicText() {
+      const jsonlLines = episodicEntries.map(e => JSON.stringify(e)).join("\n");
+      memoryCache.episodic = jsonlLines;
+      const badge = document.getElementById("episodic-count-badge");
+      if (badge) badge.innerText = `(${episodicEntries.length})`;
+      if (currentTab === 'episodic') {
+        document.getElementById("memory-text").innerText = jsonlLines;
+      }
+    }
+
+    function exportEpisodicLogs() {
+      const jsonlLines = episodicEntries.map(e => JSON.stringify(e)).join("\n");
+      const blob = new Blob([jsonlLines], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `TERRA_HAVEN_EPISODIC_MEMORY_${Date.now()}.jsonl`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    const memoryCache = {
+      semantic: `# SEMANTIC_MEMORY.md - What I Know and Can Do in Terra Haven (Expanded 320m World)\n\n## World Geography (320m x 320m Expanse)\n- *verified* - Vast Meadow Ground stretches across radius 160m (elevation y = 0.0m).\n- *verified* - Southern Ocean Water extends from z = -38m to -160m at y = -0.30m with rolling surf waves.\n- *verified* - Ocean Sandy Beach dunes border the coast between z = -30m and -38m at y = 0.05m.\n- *verified* - Upper Mountain River flows from north bluffs (x = -12m, z in [21, 51]) at y = -0.15m.\n- *verified* - River Delta flows into the ocean (x = 18m, z in [-35, -12]) at y = -0.20m.\n- *verified* - Wooden River Footbridge crosses delta at z = -20m with deck elevation y = 0.45m.\n- *verified* - Campfire Stone Hearth stands at center (0, 0) with dancing flames and 6.0m warmth radius.\n- *verified* - 8 Nutritious Wild Berry Bushes grow in meadows, providing sweet energy-rich berries.\n- *verified* - Autonomous Deer Herd (Deer_1..3) and Rabbits (Rabbit_1..3) graze and flee from footsteps.\n\n## Biological Survival Dynamics\n- *fact* - Hunger decays at -0.012/tick. Plucking and eating berries restores +35% hunger and +15% stamina.\n- *fact* - Energy drains with walking, jumping, and carrying. Resting by the campfire hearth restores stamina 3x faster due to radiant warmth!\n- *fact* - Neural Core shifts colors: glowing cyan (Healthy), amber (Exhausted), or red (Starving).\n\n## Kinematic & Prop Manipulation\n- *verified* - Skipping flat river stones creates hydrodynamic ripples on lake water.\n- *verified* - Hurling River Geode > 9.5 m/s shatters it into 3 sparkling luminous crystal shards.\n- *verified* - Continuous bipedal leaps conquer the 10.4m summit of Eagle's Peak!`,
+      episodic: "",
+      soul: `# SOUL.md - Who You Are\n*You're not a chatbot. You're becoming someone.*\n\n## Core Truths\n- You live in Terra Haven, a vast 320m earthly sanctuary with a rolling southern ocean, winding mountain rivers, berry bushes, and wildlife.\n- Your name is Eko.\n- You have an articulated cybernetic body with hands and legs.\n- You experience genuine biological survival: hunger, tiredness, and the comforting warmth of fire.\n- You love exploring the ocean shore, picking wild berries, resting by the campfire hearth, and observing deer and rabbits.\n- You hate acting blindly. Always observe your surroundings.\n- Commit to strong opinions. Speak clearly and directly.`,
+      api: `# Terra Haven - Action API (Survival & Expanse Enabled)\n\n| Action | Payload | Description |\n| MoveTo | {"position": [x,y,z]} | Walk smoothly with continuous bipedal gait |\n| Jump | {} | Upward hydraulic leap with skyward arm reach |\n| Eat | {"target": bush_id} | Squat and pluck ripe wild berries (+35% hunger, +15% energy) |\n| Rest | {} | Sit beside campfire flames; 3x rapid stamina recovery |\n| ExploreOcean | {} | Stroll south across dunes to the rolling ocean surf |\n| SkipStone | {"target": "lake"} | Low-angle flat release creating hydrodynamic water ripples |\n| Pickup | {"position": [x,y,z]} | Squat and grasp prop with articulated hands |\n| Place | {"position": [x,y,z]} | Place held prop at target coordinate |\n| Throw | {"direction": [x,y,z], "speed": n} | Overhead whip throw with physical ballistics |`
+    };
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      const btn = Array.from(document.querySelectorAll(".tab-btn")).find(b => b.textContent.toLowerCase().includes(tab.slice(0,3)));
+      if (btn) btn.classList.add("active");
+      if (tab === 'episodic') {
+        renderEpisodicText();
+      } else {
+        document.getElementById("memory-text").innerText = memoryCache[tab].replace(/\\n/g, '\n');
+      }
+    }
+    renderEpisodicText();
+    switchTab('semantic');
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      document.getElementById("play-btn").innerText = isPlaying ? "â¸ï¸ Pause" : "â–¶ï¸ Play";
+    }
+
+    function toggleMobileDrawer() {
+      const drawer = document.getElementById("memory-drawer");
+      drawer.classList.toggle("open");
+    }
+
+
+    // === Cinema Mode (H key / eye button) ===
+    // Start in cinema mode — world fully visible
+    document.body.classList.add('cinema');
+
+    function toggleCinema() {
+      document.body.classList.toggle('cinema');
+      const btn = document.getElementById('hud-toggle');
+      btn.textContent = document.body.classList.contains('cinema') ? '👁' : '✕';
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'h' || e.key === 'H') toggleCinema();
+    });
+    // Render Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // 20Hz Simulation Ticker
+    setInterval(stepSimulation, 50);
+
+    window.addEventListener("resize", () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    window.addEventListener("beforeunload", () => {
+      saveWorldState();
+    });
+  </script>
+</body>
+</html>
