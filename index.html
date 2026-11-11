@@ -88,6 +88,7 @@
     <button onclick="triggerClimbPeak()" title="Climb Peak" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🧗 Peak</button>
     <button onclick="triggerTowerBuild()" title="Stack Crates" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🪵 Stack</button>
     <button onclick="resetWorld()" title="Reset World" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">🔄 Reset</button>
+    <a id="eko-mode-link" href="?eko=llm" title="Download Liquid AI weights and run on this device using WebGPU" style="color:#7dd3fc;font-size:12px">Run Liquid AI in browser</a>
     <button onclick="togglePlay()" id="play-btn" title="Pause/Play" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);color:#94a3b8;border-radius:16px;padding:5px 11px;font-size:12px;cursor:pointer">⏸️</button>
   </div>
 
@@ -1739,7 +1740,13 @@
       const container = document.getElementById("transcript-container");
       const div = document.createElement("div");
       div.className = "transcript-entry";
-      div.innerHTML = `<div class="transcript-role">${role}</div><div class="transcript-text">${text}</div>`;
+      const roleLabel = document.createElement("div");
+      roleLabel.className = "transcript-role";
+      roleLabel.textContent = role;
+      const entryText = document.createElement("div");
+      entryText.className = "transcript-text";
+      entryText.textContent = text;
+      div.append(roleLabel, entryText);
       container.prepend(div);
       if (container.children.length > 30) container.removeChild(container.lastChild);
     }
@@ -1879,6 +1886,7 @@
     }
 
     function executeDeathAndReset(cause) {
+      ekoDecisionRequest?.abort();
       agentState.deathCount++;
       addTranscriptEntry("Emergency Failsafe", `🚨 CRITICAL CHASSIS FAILURE: ${cause}. Health dropped to 0%. Engaging automatic Haven reset.`);
       setAgentThought(`🚨 SYSTEM FAILURE: Critical damage sustained from ${cause}! Initiating emergency failsafe reset...`);
@@ -2283,6 +2291,7 @@
 
     // 6. Reset Haven Action
     function resetWorld() {
+      ekoDecisionRequest?.abort();
       try {
         localStorage.removeItem("terra_haven_world_save");
       } catch (e) {}
@@ -2321,6 +2330,85 @@
     // ==============================================================
     // --- 20HZ SIMULATION TICKER & TERRAIN-AWARE KINEMATICS ---
     // ==============================================================
+    const browserModelEnabled = new URLSearchParams(location.search).get("eko") === "llm";
+    if (browserModelEnabled) {
+      const modeLink = document.getElementById("eko-mode-link");
+      modeLink.href = location.pathname;
+      modeLink.textContent = "Switch to scripted Eko";
+      modeLink.title = "Return to the scripted demo";
+    }
+    let ekoGenerator;
+    let ekoDecisionRequest = null;
+    let nextEkoDecisionAt = 0;
+
+    async function loadEkoModel(goalLabel) {
+      if (!navigator.gpu) throw new Error("WebGPU is unavailable on this device.");
+      const { pipeline } = await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2");
+      return pipeline("text-generation", "onnx-community/LFM3-1.7B-ONNX", {
+        dtype: "q4f16",
+        device: "webgpu",
+        progress_callback: progress => {
+          if (progress.status === "progress" && progress.file?.includes(".onnx_data")) {
+            goalLabel.innerText = `Downloading Liquid AI: ${Math.floor(progress.progress)}%`;
+          }
+        }
+      });
+    }
+
+    async function requestEkoDecision() {
+      const controller = new AbortController();
+      ekoDecisionRequest = controller;
+      const goalLabel = document.getElementById("goal-pill-text");
+      goalLabel.innerText = ekoGenerator ? "Liquid AI is deciding" : "Loading Liquid AI model";
+      try {
+        ekoGenerator ??= await loadEkoModel(goalLabel);
+        if (!isPlaying || controller.signal.aborted) return;
+
+        const ripeBushes = berryBushes.filter(bush => bush.berries > 0).length;
+        const atBeach = agentState.pos[2] < -32;
+        const actions = new Map([["rest", triggerRestByFire]]);
+        if (ripeBushes > 0) actions.set("forage", triggerForageAndEat);
+        if (!atBeach) actions.set("explore", triggerExploreOcean);
+        const observation = {
+          food: Math.round(agentState.hunger),
+          energy: Math.round(agentState.energy),
+          health: Math.round(agentState.health),
+          ripeBushes,
+          atBeach,
+          allowedActions: [...actions.keys()]
+        };
+        goalLabel.innerText = "Liquid AI is deciding";
+        const output = await ekoGenerator([
+          { role: "system", content: 'You are Eko in Terra Haven. Low food means hungry. Forage eats berries, rest restores energy, explore visits the beach. Choose one allowed action. Reply with only JSON: {"action":"rest","reason":"I need energy."}' },
+          { role: "user", content: JSON.stringify(observation) }
+        ], {
+          max_new_tokens: 96,
+          do_sample: false,
+          tokenizer_encode_kwargs: { enable_thinking: false }
+        });
+        if (!isPlaying || controller.signal.aborted) return;
+        const text = output[0].generated_text.at(-1).content;
+        const { action, reason } = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        if (!actions.has(action) || typeof reason !== "string" || !reason.trim() || reason.length > 200) {
+          throw new Error("Invalid decision");
+        }
+        actions.get(action)();
+        renderThoughtBubble(reason);
+        addTranscriptEntry("Liquid AI decision", reason);
+        goalLabel.innerText = `Liquid AI: ${action}`;
+        document.getElementById("action-badge").innerText = action;
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          goalLabel.innerText = ekoGenerator ? "Liquid AI decision failed. Retrying."
+            : "Liquid AI could not load. WebGPU and a model download are required.";
+          console.warn("Eko browser model:", error);
+        }
+      } finally {
+        ekoDecisionRequest = null;
+        nextEkoDecisionAt = ekoGenerator ? Date.now() + 15000 : Infinity;
+      }
+    }
+
     function stepSimulation() {
       if (!isPlaying) return;
       tick++;
@@ -2686,7 +2774,12 @@
                      agentState.actionState === 'forage' ||
                      agentState.actionState === 'rest';
 
-      if (!isBusy && (distToGoal < 0.6 || agentState.timer > 360)) {
+      if (browserModelEnabled && !isBusy && distToGoal < 0.6 &&
+          !ekoDecisionRequest && Date.now() >= nextEkoDecisionAt) {
+        requestEkoDecision();
+      }
+
+      if (!browserModelEnabled && !isBusy && (distToGoal < 0.6 || agentState.timer > 360)) {
         agentState.timer = 0;
         agentState.behaviorIndex = (agentState.behaviorIndex + 1) % behaviors.length;
         const b = behaviors[agentState.behaviorIndex];
@@ -2705,7 +2798,7 @@
       }
 
       // Check if arrived at target destination for queued action
-      if (agentState.pendingAction && !isBusy && distToGoal < 1.0) {
+      if (!browserModelEnabled && agentState.pendingAction && !isBusy && distToGoal < 1.0) {
         const actionToRun = agentState.pendingAction;
         agentState.pendingAction = null;
         if (actionToRun === "Walking to Wooden Pier") {
