@@ -11,27 +11,12 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <style>
-    :root {
-      --bg: #0f172a;
-      --panel-bg: rgba(15, 23, 42, 0.92);
-      --border: rgba(34, 197, 94, 0.35);
-      --accent-cyan: #38bdf8;
-      --accent-green: #22c55e;
-      --accent-gold: #fbbf24;
-      --accent-timber: #b45309;
-      --text: #f8fafc;
-      --text-dim: #94a3b8;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; touch-action: manipulation; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
       overflow: hidden;
       height: 100vh;
       width: 100vw;
-      display: flex;
-      flex-direction: column;
     }
     header {
       background: rgba(15, 23, 42, 0.92);
@@ -66,21 +51,8 @@
       border-radius: 10px;
       font-weight: 600;
     }
-    .main-container {
-      flex: 1;
-      display: flex;
-      position: relative;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-    }
-    #canvas-container {
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
+    .main-container { position: fixed; inset: 0; }
+    #canvas-container { width: 100%; height: 100%; }
 
     /* Floating View Mode Selector */
     .view-selector {
@@ -391,63 +363,8 @@
 </head>
 <body>
 
-  <header>
-    <div class="brand">
-      <div class="brand-title">TERRA HAVEN</div>
-      <span class="badge">Liquid AI LFM3-1.7B</span>
-      <span class="badge" style="border-color: var(--accent-green); color: var(--accent-green);">Expanded 320m Sanctuary</span>
-    </div>
-    <div class="header-stats" style="font-size: 11px; color: var(--text-dim); display: flex; align-items: center; gap: 10px;">
-      <span><span class="status-dot"></span>Simulation: <strong id="status-text" style="color: #fff;">Autonomous Play</strong></span>
-      <span>Tick: <strong id="tick-counter" style="color: var(--accent-cyan);">0</strong></span>
-      <span>â¤ï¸ HP: <strong id="health-text" style="color: #10b981;">100%</strong></span>
-      <span>ðŸ« Hunger: <strong id="hunger-text" style="color: #f87171;">85%</strong></span>
-      <span>âš¡ Energy: <strong id="energy-text" style="color: #34d399;">95%</strong></span>
-      <span id="warmth-pill" class="badge" style="border-color: #f97316; color: #f97316; background: rgba(249,115,22,0.15); display: none;">ðŸ”¥ Cozy Hearth Warmth</span>
-      <span id="hazard-pill" class="badge" style="border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.2); display: none;">âš ï¸ Critical Hazard</span>
-      <span>Holding: <strong id="holding-text" style="color: var(--accent-gold);">None</strong></span>
-    </div>
-  </header>
-
   <div class="main-container">
     <div id="canvas-container"></div>
-
-    <!-- Quick Camera Mode Buttons -->
-    <div class="view-selector">
-      <button class="view-btn active" id="cam-agent-btn" onclick="setCamera('agent')">ðŸŽ¯ Follow Eko</button>
-      <button class="view-btn" id="cam-lake-btn" onclick="setCamera('lake')">ðŸŒŠ Lake & Pier</button>
-      <button class="view-btn" id="cam-ocean-btn" onclick="setCamera('ocean')">ðŸ–ï¸ Ocean Coast</button>
-      <button class="view-btn" id="cam-peak-btn" onclick="setCamera('peak')">ðŸ§— Eagle's Peak</button>
-      <button class="view-btn" id="cam-wildlife-btn" onclick="setCamera('wildlife')">ðŸ¦Œ Track Wildlife</button>
-      <button class="view-btn" id="cam-overview-btn" onclick="setCamera('overview')">ðŸŒ² Expanse Overview</button>
-      <button class="view-btn" id="bubble-toggle-btn" onclick="toggleThoughtBubble()" style="color: var(--accent-gold);">ðŸ’­ Bubble: ON</button>
-    </div>
-
-    <!-- Floating Live Agent Action Pill -->
-    <div class="agent-status-pill">
-      <span class="status-dot"></span>
-      <span>Eko Goal: <strong id="goal-pill-text" style="color: var(--accent-cyan);">Surveying Meadow</strong></span>
-      <span style="color: rgba(255,255,255,0.4);">|</span>
-      <span>Action: <strong id="action-state-text" style="color: var(--accent-gold);">Idle</strong></span>
-      <span style="color: rgba(255,255,255,0.4);">|</span>
-      <span>Altitude: <strong id="alt-pill-text" style="color: var(--accent-green);">0.25m</strong></span>
-      <span style="color: rgba(255,255,255,0.4);">|</span>
-      <span>Vitals: <strong id="vitality-pill-text" style="color: #38bdf8;">Healthy</strong></span>
-    </div>
-
-    <!-- Floating Live Thought Banner -->
-    <div class="thought-banner" id="thought-banner">
-      <span class="thought-icon">ðŸ’­</span>
-      <span class="thought-label">Eko's Mind:</span>
-      <span id="thought-banner-text" class="thought-content">"The morning sun warms the meadow. The lake is calm and blue... let's explore the shoreline."</span>
-    </div>
-
-    <!-- Left HUD: Agent Mind & Action Transcript -->
-    <div class="hud-panel hud-left">
-      <div class="panel-header">
-        <span>Agent Stream (Eko)</span>
-        <span id="action-badge" class="badge" style="font-size: 10px;">Active</span>
-      </div>
       <div class="panel-body" id="transcript-container">
         <div class="transcript-entry">
           <div class="transcript-role">System Initialization</div>
@@ -455,15 +372,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Right HUD: Dynamic Memory Viewer -->
-    <div class="hud-panel hud-right" id="memory-drawer">
-      <div class="panel-header">
-        <span>Agent Cognitive Memory</span>
-        <div style="display: flex; gap: 6px; align-items: center;">
-          <button class="btn btn-secondary" style="padding: 3px 8px; font-size: 10px;" onclick="exportEpisodicLogs()" title="Download EPISODIC_MEMORY.jsonl">ðŸ“¥ Export Log</button>
-          <button onclick="toggleMobileDrawer()" style="background: none; border: none; color: var(--text-dim); font-size: 14px; cursor: pointer;">âœ•</button>
-        </div>
       </div>
       <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('semantic')">SEMANTIC</button>
@@ -475,32 +383,7 @@
         <pre id="memory-text"></pre>
       </div>
     </div>
-
-    <!-- Mobile Button to Open Drawer -->
-    <button class="mobile-drawer-toggle" id="drawer-toggle-btn" onclick="toggleMobileDrawer()">
-      ðŸ§  Agent Memory & Thoughts
-    </button>
   </div>
-
-  <!-- Floating HUD toggle (press H) -->
-  <button id="hud-toggle" title="Toggle HUD (H)" onclick="toggleCinema()">👁</button>
-
-
-  <!-- Bottom Navigation & Controls -->
-  <div class="bottom-bar">
-    <button class="btn btn-green" onclick="triggerForageAndEat()">ðŸ« Forage & Eat Berries</button>
-    <button class="btn btn-gold" onclick="triggerRestByFire()">ðŸ”¥ Rest by Campfire</button>
-    <button class="btn" onclick="triggerExploreOcean()">ðŸ–ï¸ Walk to Ocean Shore</button>
-    <button class="btn btn-secondary" style="border-color: #38bdf8; color: #38bdf8;" onclick="triggerSwimJumpTest()">ðŸŒŠ Jump into Deep Lake</button>
-    <button class="btn btn-secondary" style="border-color: #f97316; color: #fb923c;" onclick="triggerFireStepTest()">ðŸ”¥ Step into Fire Pit</button>
-    <button class="btn btn-green" onclick="triggerSkipStone()">ðŸŒŠ Skip Stone on Lake</button>
-    <button class="btn btn-gold" onclick="triggerShatterTest()">ðŸ’¥ Shatter River Geode</button>
-    <button class="btn" onclick="triggerWalkToPier()">ðŸš¶ Walk to Wooden Pier</button>
-    <button class="btn btn-secondary" onclick="triggerClimbPeak()">ðŸ§— Climb Eagle's Peak (10m)</button>
-    <button class="btn btn-secondary" onclick="triggerTowerBuild()">ðŸªµ Stack Timber Crates</button>
-    <button class="btn btn-secondary" onclick="triggerPickAndCarry()">ðŸ¤² Pick Up Prop</button>
-    <button class="btn btn-secondary" onclick="resetWorld()">ðŸ”„ Reset Haven</button>
-    <div style="flex: 1;"></div>
     <button class="btn btn-secondary" id="play-btn" onclick="togglePlay()">â¸ï¸ Pause</button>
   </div>
 
@@ -3344,21 +3227,6 @@
       const drawer = document.getElementById("memory-drawer");
       drawer.classList.toggle("open");
     }
-
-
-    // === Cinema Mode (H key / eye button) ===
-    // Start in cinema mode — world fully visible
-    document.body.classList.add('cinema');
-
-    function toggleCinema() {
-      document.body.classList.toggle('cinema');
-      const btn = document.getElementById('hud-toggle');
-      btn.textContent = document.body.classList.contains('cinema') ? '👁' : '✕';
-    }
-
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'h' || e.key === 'H') toggleCinema();
-    });
     // Render Animation Loop
     function animate() {
       requestAnimationFrame(animate);
