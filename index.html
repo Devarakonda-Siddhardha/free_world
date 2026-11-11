@@ -113,7 +113,16 @@
     transition:opacity 0.5s;
   ">press Space for controls</div>
 
-  <script>
+  
+  <!-- Ghost elements JS needs to write to (hidden) -->
+  <span id="tick-counter" style="display:none"></span>
+  <span id="alt-pill-text" style="display:none"></span>
+  <span id="vitality-pill-text" style="display:none"></span>
+  <span id="holding-text" style="display:none"></span>
+  <span id="status-text" style="display:none"></span>
+  <div id="memory-drawer" style="display:none"></div>
+  <button id="bubble-toggle-btn" style="display:none"></button>
+<script>
     // Space bar toggles action bar + cam bar
     let barsVisible = false;
     document.addEventListener('keydown', e => {
