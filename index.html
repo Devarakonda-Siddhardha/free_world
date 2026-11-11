@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -6,7 +6,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>Terra Haven â€” Autonomous Machine Playing by the Lake (Liquid AI LFM3)</title>
+  <title>Terra Haven — Autonomous Machine Playing by the Lake (Liquid AI LFM3)</title>
   <!-- Three.js and OrbitControls via CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -1033,7 +1033,7 @@
       sprite.position.y = 0.58;
       return sprite;
     }
-    const nameTag = createNameTag("â— EKO (LFM-3)");
+    const nameTag = createNameTag("● EKO (LFM-3)");
     headGroup.add(nameTag);
 
     // --- 3D FLOATING THOUGHT BUBBLE DIALOGUE SYSTEM ---
@@ -1124,7 +1124,7 @@
       // Header Tag: Identity & Cognition Mode
       ctx.fillStyle = "#fbbf24";
       ctx.font = "bold 20px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      ctx.fillText("ðŸ’­ EKO'S THOUGHT PROCESS [LFM-3]", 44, 54);
+      ctx.fillText("💭 EKO'S THOUGHT PROCESS [LFM-3]", 44, 54);
 
       // Subtle Divider
       ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
@@ -1137,7 +1137,7 @@
       // Thought Monologue Lines
       ctx.fillStyle = "#f8fafc";
       ctx.font = "italic 500 23px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-      const wrapped = wrapCanvasText(ctx, `â€œ${thought}â€`, 530);
+      const wrapped = wrapCanvasText(ctx, `“${thought}”`, 530);
       const startY = 104;
       const lineHeight = 34;
       wrapped.slice(0, 3).forEach((line, idx) => {
@@ -1148,21 +1148,21 @@
 
       // Update Top HUD banner
       const bannerText = document.getElementById("thought-banner-text");
-      if (bannerText) bannerText.innerText = `â€œ${thought}â€`;
+      if (bannerText) bannerText.innerText = `“${thought}”`;
     }
 
     renderThoughtBubble(currentThoughtText);
 
     function setAgentThought(thought) {
       renderThoughtBubble(thought);
-      addTranscriptEntry("Eko Mind", `ðŸ’­ "${thought}"`);
+      addTranscriptEntry("Eko Mind", `💭 "${thought}"`);
     }
 
     function toggleThoughtBubble() {
       isThoughtBubbleVisible = !isThoughtBubbleVisible;
       renderThoughtBubble(currentThoughtText);
       const btn = document.getElementById("bubble-toggle-btn");
-      if (btn) btn.innerText = isThoughtBubbleVisible ? "ðŸ’­ Bubble: ON" : "ðŸ’­ Bubble: OFF";
+      if (btn) btn.innerText = isThoughtBubbleVisible ? "💭 Bubble: ON" : "💭 Bubble: OFF";
     }
 
     torsoGroup.add(headGroup);
@@ -1409,7 +1409,7 @@
         name: "Eagle's Peak Summit Lookout",
         target: [-16, 10.4, 29.0],
         action: "Standing victorious atop the 10.4m Eagle's Peak summit deck!",
-        thought: "â˜… Reached the 10.4m summit deck! Look at the view over the entire lake and forest below!"
+        thought: "★ Reached the 10.4m summit deck! Look at the view over the entire lake and forest below!"
       },
       {
         name: "Stacking Crate Tower at Hearth",
@@ -1506,12 +1506,12 @@
         if (hazardPill) {
           if (agentState.isBurning) {
             hazardPill.style.display = "inline-block";
-            hazardPill.innerText = "ðŸ”¥ Thermal Burn Hazard!";
+            hazardPill.innerText = "🔥 Thermal Burn Hazard!";
             hazardPill.style.borderColor = "#ef4444";
             hazardPill.style.color = "#ef4444";
           } else if (agentState.isDrowning) {
             hazardPill.style.display = "inline-block";
-            hazardPill.innerText = "ðŸŒŠ Chassis Drowning Hazard!";
+            hazardPill.innerText = "🌊 Chassis Drowning Hazard!";
             hazardPill.style.borderColor = "#0284c7";
             hazardPill.style.color = "#38bdf8";
           } else {
@@ -1563,7 +1563,7 @@
           }
         }
 
-        addTranscriptEntry("World Persistence", `â˜… Terra Haven world state restored from persistent memory (Tick: ${tick}). Simulation resumes uninterrupted.`);
+        addTranscriptEntry("World Persistence", `★ Terra Haven world state restored from persistent memory (Tick: ${tick}). Simulation resumes uninterrupted.`);
         return true;
       } catch (e) {
         console.error("Failed to load world state:", e);
@@ -1596,7 +1596,7 @@
                               [0.35, 0.85, 0.95], 0.6, { Luminous: true, Crystal: true });
         ent.vel = [(Math.random() - 0.5) * 4, 3.5 + Math.random() * 2.5, (Math.random() - 0.5) * 4];
       }
-      addTranscriptEntry("Geode Fractured", "â˜… KINETIC IMPACT! River Geode fractured into 3 sparkling crystal shards!");
+      addTranscriptEntry("Geode Fractured", "★ KINETIC IMPACT! River Geode fractured into 3 sparkling crystal shards!");
       updateMemoryWithDiscovery("Kinetic Impact Verified: Hurling River Geode > 9.5 m/s fractures it into sparkling crystal shards.");
     }
 
@@ -1664,7 +1664,7 @@
         if (energyEl) energyEl.innerText = `${Math.round(agentState.energy)}%`;
 
         setAgentThought(`Delicious sweet mountain berries! Restored hunger to ${Math.round(agentState.hunger)}% and stamina to ${Math.round(agentState.energy)}%.`);
-        addTranscriptEntry("Biological Survival", `ðŸ« Ate wild berries. Hunger: ${Math.round(agentState.hunger)}% (+35%), Stamina: ${Math.round(agentState.energy)}% (+15%).`);
+        addTranscriptEntry("Biological Survival", `🫐 Ate wild berries. Hunger: ${Math.round(agentState.hunger)}% (+35%), Stamina: ${Math.round(agentState.energy)}% (+15%).`);
         recordEpisodicMemory("Foraged and Ate Berries", `Plucked sweet berries from ${bush.id}; replenished hunger to ${Math.round(agentState.hunger)}% and stamina to ${Math.round(agentState.energy)}%.`);
 
         setTimeout(() => {
@@ -1693,9 +1693,9 @@
     function executeRestSequence() {
       agentState.actionState = 'rest';
       agentState.restTimer = 80;
-      document.getElementById("action-state-text").innerText = "ðŸ”¥ Resting by Campfire";
+      document.getElementById("action-state-text").innerText = "🔥 Resting by Campfire";
       setAgentThought("Sitting down beside the crackling fire. The warmth relaxes my joints and restores energy 3x faster!");
-      addTranscriptEntry("Campfire Warmth", "ðŸ”¥ Eko sits down by the campfire. Radiant warmth accelerating energy recovery to 100%.");
+      addTranscriptEntry("Campfire Warmth", "🔥 Eko sits down by the campfire. Radiant warmth accelerating energy recovery to 100%.");
 
       const restTick = setInterval(() => {
         agentState.energy = Math.min(100, agentState.energy + 8);
@@ -1707,7 +1707,7 @@
           agentState.actionState = 'walk';
           document.getElementById("action-state-text").innerText = "Walking";
           setAgentThought("Fully energized and refreshed by the hearth! Ready for new expeditions.");
-          addTranscriptEntry("Campfire Warmth", "âš¡ Stamina fully restored to 100%. Eko stands up refreshed.");
+          addTranscriptEntry("Campfire Warmth", "⚡ Stamina fully restored to 100%. Eko stands up refreshed.");
           recordEpisodicMemory("Rested by Campfire Hearth", "Sat beside campfire flames; radiant warmth restored stamina to 100%.");
           saveWorldState();
         }
@@ -1723,8 +1723,8 @@
 
     function executeDeathAndReset(cause) {
       agentState.deathCount++;
-      addTranscriptEntry("Emergency Failsafe", `ðŸš¨ CRITICAL CHASSIS FAILURE: ${cause}. Health dropped to 0%. Engaging automatic Haven reset.`);
-      setAgentThought(`ðŸš¨ SYSTEM FAILURE: Critical damage sustained from ${cause}! Initiating emergency failsafe reset...`);
+      addTranscriptEntry("Emergency Failsafe", `🚨 CRITICAL CHASSIS FAILURE: ${cause}. Health dropped to 0%. Engaging automatic Haven reset.`);
+      setAgentThought(`🚨 SYSTEM FAILURE: Critical damage sustained from ${cause}! Initiating emergency failsafe reset...`);
 
       // Discharge held prop if any
       if (agentState.holdingId) {
@@ -1793,7 +1793,7 @@
     function triggerSwimJumpTest() {
       // Eko leaps off the wooden pier deck directly into the deep lake water
       setAgentThought("Testing water depth... jumping off the cedar pier directly into deep lake water!");
-      addTranscriptEntry("Deep Lake Leap", "ðŸŒŠ Eko executes hydraulic leap off the pier deck directly into deep lake water!");
+      addTranscriptEntry("Deep Lake Leap", "🌊 Eko executes hydraulic leap off the pier deck directly into deep lake water!");
       document.getElementById("action-state-text").innerText = "Leaping into Lake";
       agentState.pos = [11.0, 0.35, -10.0];
       agentGroup.position.set(11.0, 0.35, -10.0);
@@ -1805,7 +1805,7 @@
     function triggerFireStepTest() {
       // Eko steps directly into the burning core of the campfire hearth
       setAgentThought("Investigating campfire pit center... stepping right into the glowing flames!");
-      addTranscriptEntry("Fire Pit Entry", "ðŸ”¥ Eko navigates straight into the burning core of the central campfire pit!");
+      addTranscriptEntry("Fire Pit Entry", "🔥 Eko navigates straight into the burning core of the central campfire pit!");
       document.getElementById("action-state-text").innerText = "Stepping into Fire";
       agentState.targetPos = [0.0, 0.25, 0.0];
     }
@@ -2036,9 +2036,9 @@
                       if (agentState.pos[1] >= 10.3 && Math.abs(agentState.vel[1]) < 0.2) {
                         clearInterval(waitLandSummit);
                         agentState.actionState = 'celebrate';
-                        document.getElementById("action-state-text").innerText = "â˜… Summit Conquered";
-                        setAgentThought("â˜… EAGLE'S PEAK CONQUERED! Standing victorious atop the 10.4m mountain lookout deck!");
-                        addTranscriptEntry("Mountain Summit", "â˜… EKO HAS CONQUERED EAGLE'S PEAK! Altitude: 10.40m!");
+                        document.getElementById("action-state-text").innerText = "★ Summit Conquered";
+                        setAgentThought("★ EAGLE'S PEAK CONQUERED! Standing victorious atop the 10.4m mountain lookout deck!");
+                        addTranscriptEntry("Mountain Summit", "★ EKO HAS CONQUERED EAGLE'S PEAK! Altitude: 10.40m!");
                         recordEpisodicMemory("Conquered Eagle's Peak Summit", "Climbed stepped granite ledges via continuous physics leaps to reach 10.4m summit deck.");
 
                         // After 4 seconds at the summit, descend back down gracefully
@@ -2401,7 +2401,7 @@
         // Thermal burn damage: -0.45 HP per tick (~9.0 HP/s at 20Hz)
         agentState.health = Math.max(0, agentState.health - 0.45);
         if (tick % 25 === 0) {
-          setAgentThought("âš ï¸ Intense thermal heat! Chassis sensors registering critical high-temperature burn damage!");
+          setAgentThought("⚠️ Intense thermal heat! Chassis sensors registering critical high-temperature burn damage!");
         }
       } else {
         agentState.isBurning = false;
@@ -2441,7 +2441,7 @@
           createWaterRipple(agentState.pos[0], agentState.pos[2]);
         }
         if (tick % 25 === 0) {
-          setAgentThought("âš ï¸ Fluid breach! High water density exceeds chassis buoyancy â€” no swimming locomotion subroutine found!");
+          setAgentThought("⚠️ Fluid breach! High water density exceeds chassis buoyancy — no swimming locomotion subroutine found!");
         }
       } else {
         agentState.isDrowning = false;
@@ -2468,12 +2468,12 @@
       if (hazardPill) {
         if (agentState.isBurning) {
           hazardPill.style.display = "inline-block";
-          hazardPill.innerText = "ðŸ”¥ Thermal Burn Hazard!";
+          hazardPill.innerText = "🔥 Thermal Burn Hazard!";
           hazardPill.style.borderColor = "#ef4444";
           hazardPill.style.color = "#ef4444";
         } else if (agentState.isDrowning) {
           hazardPill.style.display = "inline-block";
-          hazardPill.innerText = "ðŸŒŠ Chassis Drowning Hazard!";
+          hazardPill.innerText = "🌊 Chassis Drowning Hazard!";
           hazardPill.style.borderColor = "#0284c7";
           hazardPill.style.color = "#38bdf8";
         } else {
@@ -2866,7 +2866,7 @@
             ent.vel[0] *= 0.82;
             ent.vel[2] *= 0.82;
             createWaterRipple(ent.pos[0], ent.pos[2]);
-            addTranscriptEntry("Stone Skip", `ðŸŒŠ River stone skipped across water! Ripple created at [${ent.pos[0].toFixed(1)}, ${ent.pos[2].toFixed(1)}].`);
+            addTranscriptEntry("Stone Skip", `🌊 River stone skipped across water! Ripple created at [${ent.pos[0].toFixed(1)}, ${ent.pos[2].toFixed(1)}].`);
             recordEpisodicMemory("Stone Skipped on Lake", "Threw flat river stone across water surface; achieved multi-hop skip with hydrodynamic ripples.");
           }
         }
@@ -2879,8 +2879,8 @@
             spawnCrystalShards(ent.pos[0], ent.pos[1] + 0.4, ent.pos[2]);
             const m = entityMeshes.get(ent.id);
             if (m) scene.remove(m);
-            setAgentThought("â˜… Kinetic Impact verified! River Geode fractured into 3 sparkling crystal shards!");
-            addTranscriptEntry("Kinetic Impact", "â˜… IMPACT! River Geode fractured into 3 sparkling crystal shards!");
+            setAgentThought("★ Kinetic Impact verified! River Geode fractured into 3 sparkling crystal shards!");
+            addTranscriptEntry("Kinetic Impact", "★ IMPACT! River Geode fractured into 3 sparkling crystal shards!");
             recordEpisodicMemory("Kinetic Impact Verified", "Hurled River Geode > 9.5 m/s against boulder; impact fractured into 3 sparkling crystal shards.");
             saveWorldState();
           }
@@ -2970,7 +2970,7 @@
 
     function togglePlay() {
       isPlaying = !isPlaying;
-      document.getElementById("play-btn").innerText = isPlaying ? "â¸ï¸ Pause" : "â–¶ï¸ Play";
+      document.getElementById("play-btn").innerText = isPlaying ? "⏸️ Pause" : "▶️ Play";
     }
 
     function toggleMobileDrawer() {
