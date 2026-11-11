@@ -142,7 +142,7 @@
     const container = document.getElementById("canvas-container");
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x60a5fa); // Crisp daytime sunny blue sky
-    scene.fog = new THREE.FogExp2(0xcfe8fc, 0.007); // Gentle lakeside atmospheric haze
+    scene.fog = new THREE.FogExp2(0xbfdbfe, 0.0032); // Gentle distant horizon haze
 
     const camera = new THREE.PerspectiveCamera(52, container.clientWidth / container.clientHeight, 0.1, 1000);
 
@@ -152,7 +152,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 0.92;
     container.appendChild(renderer.domElement);
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -160,13 +160,13 @@
     controls.dampingFactor = 0.06;
 
     // --- DAYLIGHT ENVIRONMENT LIGHTING ---
-    const ambientLight = new THREE.AmbientLight(0xdbeafe, 1.25);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.42);
     scene.add(ambientLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x166534, 0.55); // Sky blue to lush grass green bounce
+    const hemiLight = new THREE.HemisphereLight(0x93c5fd, 0x14532d, 0.48); // Sky blue to rich meadow bounce
     scene.add(hemiLight);
 
-    const sunLight = new THREE.DirectionalLight(0xfffaed, 2.1); // Warm golden sunlight
+    const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.75); // Warm golden sunlight
     sunLight.position.set(40, 70, 30);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
@@ -207,7 +207,7 @@
         puff.position.set((p - puffCount / 2) * 2.4, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 2.2);
         singleCloud.add(puff);
       }
-      singleCloud.position.set((Math.random() - 0.5) * 220, 42 + Math.random() * 18, (Math.random() - 0.5) * 220);
+      singleCloud.position.set((Math.random() - 0.5) * 240, 62 + Math.random() * 18, (Math.random() - 0.5) * 240);
       cloudsGroup.add(singleCloud);
     }
     scene.add(cloudsGroup);
@@ -288,32 +288,84 @@
     }
 
     // --- TERRA HAVEN EARTHLY GEOMETRY (320M EXPANSE) ---
-    // 1. Lush Green Grassy Meadow Foundation (320m diameter)
-    const groundGeo = new THREE.CylinderGeometry(160, 155, 4, 64);
+    // 0. Submerged Island Earth Base (sits below all carved lakes, rivers & coastal sea)
+    const seabedBaseGeo = new THREE.CylinderGeometry(160, 155, 3.0, 64);
+    const seabedBaseMat = new THREE.MeshStandardMaterial({ color: 0x3b4d3e, roughness: 0.95 });
+    const seabedBase = new THREE.Mesh(seabedBaseGeo, seabedBaseMat);
+    seabedBase.position.y = -2.4;
+    seabedBase.receiveShadow = true;
+    scene.add(seabedBase);
+
+    // 1. Carved Lush Green Grassy Meadow Foundation (320m circle, carved around Lake, Rivers & Southern Coast)
+    const R_WORLD = 160;
+    const thetaCoast = Math.asin(30 / R_WORLD);
+    const xCoast = Math.sqrt(R_WORLD * R_WORLD - 30 * 30);
+    const tDeltaStart = Math.acos((22 - 14) / 17);
+    const deltaLakeY = 10 + 12 * Math.sin(tDeltaStart);
+
+    const meadowShape = new THREE.Shape();
+    meadowShape.moveTo(-xCoast, 30);
+    meadowShape.absarc(0, 0, R_WORLD, Math.PI - thetaCoast, 2 * Math.PI + thetaCoast, false);
+    meadowShape.lineTo(22, 30);
+    meadowShape.lineTo(22, deltaLakeY);
+    for (let i = 1; i <= 64; i++) {
+      const t = tDeltaStart + (i / 64) * (-1.5 * Math.PI - tDeltaStart);
+      meadowShape.lineTo(14 + 17 * Math.cos(t), 10 + 12 * Math.sin(t));
+    }
+    meadowShape.lineTo(14, 30);
+    meadowShape.lineTo(-xCoast, 30);
+
+    // Carve Upper Mountain Stream channel (x in [-16, -8], worldZ in [21, 51] -> shapeY in [-51, -21])
+    const upperRiverHole = new THREE.Path();
+    upperRiverHole.moveTo(-16, -51);
+    upperRiverHole.lineTo(-16, -21);
+    upperRiverHole.lineTo(-8, -21);
+    upperRiverHole.lineTo(-8, -51);
+    upperRiverHole.lineTo(-16, -51);
+    meadowShape.holes.push(upperRiverHole);
+
+    const groundGeo = new THREE.ExtrudeGeometry(meadowShape, { depth: 0.55, bevelEnabled: false, curveSegments: 48 });
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x16a34a, // Vibrant lush grass green
-      roughness: 0.88,
-      metalness: 0.05
+      color: 0x22a34a, // Rich emerald meadow grass
+      roughness: 0.92,
+      metalness: 0.0
     });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.position.y = -2.0;
+    const bankMat = new THREE.MeshStandardMaterial({
+      color: 0x8b6b3e, // Earthy bank soil along lake & river walls
+      roughness: 0.95,
+      metalness: 0.0
+    });
+    const ground = new THREE.Mesh(groundGeo, [groundMat, bankMat]);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.55; // Top grass sits cleanly at y = 0.0
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Meadow Path Ring
+    // Warm Sandstone Meadow Path Ring around Campfire Hearth
     const pathRingGeo = new THREE.RingGeometry(5.0, 5.7, 48);
-    const pathRingMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.92, side: THREE.DoubleSide });
+    const pathRingMat = new THREE.MeshStandardMaterial({ color: 0xc8ad75, roughness: 0.95, side: THREE.DoubleSide });
     const pathRing = new THREE.Mesh(pathRingGeo, pathRingMat);
     pathRing.rotation.x = -Math.PI / 2;
     pathRing.position.y = 0.015;
     scene.add(pathRing);
 
-    // 2. Organic Shimmering Blue Lake
+    // 2. Organic Shimmering Blue Lake + Submerged Lakebed + Golden Sandy Rim
+    const lakeBedGeo = new THREE.CircleGeometry(1.0, 48);
+    const lakeBedMat = new THREE.MeshStandardMaterial({ color: 0x87774d, roughness: 0.95 });
+    const lakeBed = new THREE.Mesh(lakeBedGeo, lakeBedMat);
+    lakeBed.rotation.x = -Math.PI / 2;
+    lakeBed.scale.set(17.5, 12.5, 1);
+    lakeBed.position.set(14, -0.45, -10);
+    lakeBed.receiveShadow = true;
+    scene.add(lakeBed);
+
     const waterGeo = new THREE.CircleGeometry(1.0, 48);
     const waterMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7, // Shimmering lake blue
-      roughness: 0.12,
-      metalness: 0.58,
+      color: 0x0284c7, // Vibrant lake blue
+      emissive: 0x0369a1,
+      emissiveIntensity: 0.18,
+      roughness: 0.08,
+      metalness: 0.30,
       transparent: true,
       opacity: 0.84
     });
@@ -324,13 +376,40 @@
     waterMesh.receiveShadow = true;
     scene.add(waterMesh);
 
-    // Golden Sandy Shoreline
-    const sandGeo = new THREE.RingGeometry(0.95, 1.14, 48);
-    const sandMat = new THREE.MeshStandardMaterial({ color: 0xfcd34d, roughness: 0.95, side: THREE.DoubleSide });
+    // Lake Shoreline Foam Accent
+    const lakeFoamGeo = new THREE.RingGeometry(0.96, 1.0, 64);
+    const lakeFoamMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.42, side: THREE.DoubleSide });
+    const lakeFoam = new THREE.Mesh(lakeFoamGeo, lakeFoamMat);
+    lakeFoam.rotation.x = -Math.PI / 2;
+    lakeFoam.scale.set(17, 12, 1);
+    lakeFoam.position.set(14, -0.138, -10);
+    scene.add(lakeFoam);
+
+    // Golden Sandy Shoreline Rim (wraps lake except across River Delta outlet x in [14, 22])
+    const lakeSandShape = new THREE.Shape();
+    const sandRxOut = 17 * 1.15, sandRyOut = 12 * 1.15;
+    const sandRxIn = 17 * 0.99, sandRyIn = 12 * 0.99;
+    const tSandStart = Math.acos((22 - 14) / sandRxOut);
+    lakeSandShape.moveTo(14 + sandRxOut * Math.cos(tSandStart), 10 + sandRyOut * Math.sin(tSandStart));
+    for (let i = 1; i <= 64; i++) {
+      const t = tSandStart + (i / 64) * (-1.5 * Math.PI - tSandStart);
+      lakeSandShape.lineTo(14 + sandRxOut * Math.cos(t), 10 + sandRyOut * Math.sin(t));
+    }
+    const tSandInEnd = -1.5 * Math.PI;
+    const tSandInStart = Math.acos((22 - 14) / sandRxIn);
+    lakeSandShape.lineTo(14 + sandRxIn * Math.cos(tSandInEnd), 10 + sandRyIn * Math.sin(tSandInEnd));
+    for (let i = 1; i <= 64; i++) {
+      const t = tSandInEnd + (i / 64) * (tSandInStart - tSandInEnd);
+      lakeSandShape.lineTo(14 + sandRxIn * Math.cos(t), 10 + sandRyIn * Math.sin(t));
+    }
+    lakeSandShape.closePath();
+
+    const sandGeo = new THREE.ShapeGeometry(lakeSandShape, 48);
+    const sandMat = new THREE.MeshStandardMaterial({ color: 0xe6c36a, roughness: 0.95, side: THREE.DoubleSide });
     const sandMesh = new THREE.Mesh(sandGeo, sandMat);
     sandMesh.rotation.x = -Math.PI / 2;
-    sandMesh.scale.set(17, 12, 1);
-    sandMesh.position.set(14, -0.14, -10);
+    sandMesh.position.y = 0.014;
+    sandMesh.receiveShadow = true;
     scene.add(sandMesh);
 
     // 3. Wooden Cedar Pier / Dock
@@ -379,8 +458,8 @@
       { x: 9.5, z: -13.5, r: 0.9 }
     ];
     steppingStones.forEach(s => {
-      const sm = new THREE.Mesh(new THREE.CylinderGeometry(s.r, s.r * 1.1, 0.35, 14), stoneMat);
-      sm.position.set(s.x, 0.05, s.z);
+      const sm = new THREE.Mesh(new THREE.CylinderGeometry(s.r, s.r * 1.15, 0.70, 14), stoneMat);
+      sm.position.set(s.x, -0.125, s.z);
       sm.castShadow = true;
       sm.receiveShadow = true;
       scene.add(sm);
@@ -466,52 +545,121 @@
     hearthGroup.add(bench);
     scene.add(hearthGroup);
 
-    // --- VAST SOUTHERN OCEAN & SURF (z in [-160, -35]) ---
+    // --- VAST SOUTHERN OCEAN & SURF (z in [-356, -36]) ---
     const oceanGroup = new THREE.Group();
-    const oceanGeo = new THREE.PlaneGeometry(320, 130, 48, 24);
+
+    // Deep Ocean Seabed underneath translucent sea
+    const seabedPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(600, 340),
+      new THREE.MeshStandardMaterial({ color: 0x082f49, roughness: 0.95 })
+    );
+    seabedPlane.rotation.x = -Math.PI / 2;
+    seabedPlane.position.set(0, -1.0, -206);
+    oceanGroup.add(seabedPlane);
+
+    const oceanGeo = new THREE.PlaneGeometry(600, 340, 48, 24);
     const oceanMat = new THREE.MeshStandardMaterial({
-      color: 0x0284c7, // Vibrant deep ocean blue
-      roughness: 0.15,
-      metalness: 0.65,
+      color: 0x0369a1, // Deep rich ocean blue
+      emissive: 0x075985,
+      emissiveIntensity: 0.24,
+      roughness: 0.12,
+      metalness: 0.35,
       transparent: true,
       opacity: 0.90
     });
     const oceanMesh = new THREE.Mesh(oceanGeo, oceanMat);
     oceanMesh.rotation.x = -Math.PI / 2;
-    oceanMesh.position.set(0, -0.30, -100);
+    oceanMesh.position.set(0, -0.30, -206);
     oceanMesh.receiveShadow = true;
     oceanGroup.add(oceanMesh);
 
-    // Ocean Surf Foam Line
-    const surfGeo = new THREE.PlaneGeometry(320, 4.0);
-    const surfMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.70, side: THREE.DoubleSide });
+    // Ocean Surf Foam Lines
+    const surfGeo = new THREE.PlaneGeometry(310, 3.2);
+    const surfMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.72, side: THREE.DoubleSide });
     const surfMesh = new THREE.Mesh(surfGeo, surfMat);
     surfMesh.rotation.x = -Math.PI / 2;
-    surfMesh.position.set(0, -0.27, -37.5);
+    surfMesh.position.set(0, -0.22, -37.5);
     oceanGroup.add(surfMesh);
 
-    // Ocean Sandy Beach Shoreline Dunes (z in [-30, -38])
-    const beachGeo = new THREE.PlaneGeometry(320, 9.0);
-    const beachMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.95 });
-    const beachMesh = new THREE.Mesh(beachGeo, beachMat);
-    beachMesh.rotation.x = -Math.PI / 2;
-    beachMesh.position.set(0, 0.04, -34.0);
-    beachMesh.receiveShadow = true;
-    oceanGroup.add(beachMesh);
+    const surfMat2 = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.45, side: THREE.DoubleSide });
+    const surfMesh2 = new THREE.Mesh(new THREE.PlaneGeometry(310, 2.2), surfMat2);
+    surfMesh2.rotation.x = -Math.PI / 2;
+    surfMesh2.position.set(0, -0.25, -43.5);
+    oceanGroup.add(surfMesh2);
+
+    // Ocean Sandy Beach Shoreline Dunes (z in [-30, -38], split cleanly around River Delta x in [14, 22])
+    const a30 = Math.asin(30 / R_WORLD);
+    const a38 = Math.asin(38 / R_WORLD);
+    const x38 = Math.sqrt(R_WORLD * R_WORLD - 38 * 38);
+
+    const westBeachShape = new THREE.Shape();
+    westBeachShape.moveTo(14, 30);
+    westBeachShape.lineTo(14, 38);
+    westBeachShape.lineTo(-x38, 38);
+    westBeachShape.absarc(0, 0, R_WORLD, Math.PI - a38, Math.PI - a30, false);
+    westBeachShape.lineTo(14, 30);
+
+    const eastBeachShape = new THREE.Shape();
+    eastBeachShape.moveTo(22, 30);
+    eastBeachShape.lineTo(xCoast, 30);
+    eastBeachShape.absarc(0, 0, R_WORLD, a30, a38, false);
+    eastBeachShape.lineTo(22, 38);
+    eastBeachShape.lineTo(22, 30);
+
+    const beachMat = new THREE.MeshStandardMaterial({ color: 0xe6c36a, roughness: 0.95 });
+    [westBeachShape, eastBeachShape].forEach(bShape => {
+      const bGeo = new THREE.ExtrudeGeometry(bShape, { depth: 0.55, bevelEnabled: false, curveSegments: 32 });
+      const bMesh = new THREE.Mesh(bGeo, beachMat);
+      bMesh.rotation.x = -Math.PI / 2;
+      bMesh.position.y = -0.50; // Top beach sits cleanly at y = +0.05
+      bMesh.receiveShadow = true;
+      oceanGroup.add(bMesh);
+    });
     scene.add(oceanGroup);
 
     // --- WINDING MOUNTAIN RIVER & DELTA ---
-    const riverMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.18, metalness: 0.5, transparent: true, opacity: 0.85 });
+    const riverBedMat = new THREE.MeshStandardMaterial({ color: 0x786b52, roughness: 0.95 });
+    const riverBankSandMat = new THREE.MeshStandardMaterial({ color: 0xe6c36a, roughness: 0.95 });
+    const riverMat = new THREE.MeshStandardMaterial({
+      color: 0x0ea5e9,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.16,
+      roughness: 0.10,
+      metalness: 0.30,
+      transparent: true,
+      opacity: 0.86
+    });
 
-    // 1. River Upper Stream (x = -12, z in [21, 51])
-    const riverUpperMesh = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.2, 30.0), riverMat);
-    riverUpperMesh.position.set(-12.0, -0.15, 36.0);
+    // 1. River Upper Stream (x in [-16, -8], z in [21, 51])
+    const upperBed = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.1, 30.2), riverBedMat);
+    upperBed.position.set(-12.0, -0.45, 36.0);
+    oceanGroup.add(upperBed);
+    [-16.45, -7.55].forEach(bx => {
+      const bank = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.03, 30.8), riverBankSandMat);
+      bank.position.set(bx, 0.005, 36.0);
+      bank.receiveShadow = true;
+      scene.add(bank);
+    });
+    const riverUpperMesh = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.08, 30.0), riverMat);
+    riverUpperMesh.position.set(-12.0, -0.19, 36.0); // Top surface at y = -0.15
     riverUpperMesh.receiveShadow = true;
     scene.add(riverUpperMesh);
 
-    // 2. River Delta Outlet (x = 18, z in [-35, -12])
-    const riverDeltaMesh = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.2, 26.0), riverMat);
-    riverDeltaMesh.position.set(18.0, -0.20, -24.0);
+    // 2. River Delta Outlet (x in [14, 22], z in [-38.0, -21.2])
+    const deltaBed = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.1, 17.2), riverBedMat);
+    deltaBed.position.set(18.0, -0.45, -29.6);
+    scene.add(deltaBed);
+    [
+      { x: 13.55, len: 8.0, cz: -26.0 },
+      { x: 22.45, len: 9.5, cz: -25.25 }
+    ].forEach(b => {
+      const bank = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.03, b.len), riverBankSandMat);
+      bank.position.set(b.x, 0.005, b.cz);
+      bank.receiveShadow = true;
+      scene.add(bank);
+    });
+    const riverDeltaMesh = new THREE.Mesh(new THREE.BoxGeometry(8.0, 0.08, 17.0), riverMat);
+    riverDeltaMesh.position.set(18.0, -0.24, -29.7); // Top surface at y = -0.20, meets lake & ocean seamlessly
     riverDeltaMesh.receiveShadow = true;
     scene.add(riverDeltaMesh);
 
@@ -628,8 +776,8 @@
       [-8, -12, 'pine', 1.1], [-12, -8, 'pine', 1.3], [-14, -16, 'pine', 0.9],
       [-22, 6, 'pine', 1.2], [-24, 14, 'pine', 1.0], [-10, 16, 'birch', 1.1],
       [-6, 22, 'birch', 1.2], [-22, 24, 'pine', 1.4], [6, 18, 'birch', 1.0],
-      [12, 14, 'birch', 0.9], [18, 10, 'birch', 1.1], [24, -4, 'pine', 1.2],
-      [26, -18, 'pine', 1.0], [16, -26, 'pine', 1.3], [2, -24, 'birch', 1.1],
+      [12, 14, 'birch', 0.9], [18, 10, 'birch', 1.1], [33, -4, 'pine', 1.2],
+      [32, -19, 'pine', 1.0], [7, -25, 'pine', 1.3], [2, -24, 'birch', 1.1],
       [-4, -22, 'pine', 1.0]
     ];
     treeCoords.forEach(([tx, tz, type, sc]) => {
@@ -644,7 +792,8 @@
       const ripMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
       const ripMesh = new THREE.Mesh(ripGeo, ripMat);
       ripMesh.rotation.x = -Math.PI / 2;
-      ripMesh.position.set(x, -0.13, z);
+      const waterY = getSurfaceElevation(x, z);
+      ripMesh.position.set(x, (waterY < 0 ? waterY : -0.15) + 0.025, z);
       scene.add(ripMesh);
       ripples.push({ mesh: ripMesh, age: 0, maxAge: 50, radius: 0.3 });
     }
@@ -662,7 +811,7 @@
       [22.0, 4.0],
       [-6.0, -18.0],
       [-18.0, -12.0],
-      [25.0, -14.0]
+      [33.0, -10.0]
     ];
 
     const berryBushes = [];
@@ -1291,35 +1440,43 @@
 
     function setCamera(mode) {
       cameraMode = mode;
-      document.querySelectorAll(".view-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".cb").forEach(b => {
+        b.classList.remove("active");
+        b.style.background = "transparent";
+        b.style.color = "#94a3b8";
+        b.style.fontWeight = "normal";
+      });
+      const activateCamBtn = (id) => {
+        const btn = document.getElementById(id);
+        if (btn) {
+          btn.classList.add("active");
+          btn.style.background = "rgba(56,189,248,0.2)";
+          btn.style.color = "#38bdf8";
+          btn.style.fontWeight = "700";
+        }
+      };
       if (mode === 'agent') {
-        const btn = document.getElementById("cam-agent-btn");
-        if (btn) btn.classList.add("active");
+        activateCamBtn("cam-agent-btn");
         camera.position.set(agentGroup.position.x + 3.2, agentGroup.position.y + 4.2, agentGroup.position.z + 7.5);
         controls.target.set(agentGroup.position.x, agentGroup.position.y + 1.1, agentGroup.position.z);
       } else if (mode === 'lake') {
-        const btn = document.getElementById("cam-lake-btn");
-        if (btn) btn.classList.add("active");
+        activateCamBtn("cam-lake-btn");
         camera.position.set(22, 9, 8);
         controls.target.set(9, 0, -10);
       } else if (mode === 'ocean') {
-        const btn = document.getElementById("cam-ocean-btn");
-        if (btn) btn.classList.add("active");
+        activateCamBtn("cam-ocean-btn");
         camera.position.set(0, 14, -14);
         controls.target.set(0, -0.3, -85);
       } else if (mode === 'peak') {
-        const btn = document.getElementById("cam-peak-btn");
-        if (btn) btn.classList.add("active");
+        activateCamBtn("cam-peak-btn");
         camera.position.set(-16, 15, 45);
         controls.target.set(-16, 8, 28);
       } else if (mode === 'wildlife') {
-        const btn = document.getElementById("cam-wildlife-btn");
-        if (btn) btn.classList.add("active");
+        activateCamBtn("cam-wildlife-btn");
         camera.position.set(-12, 7, 24);
         controls.target.set(-18, 1.2, 14);
       } else if (mode === 'overview') {
-        const btn = document.getElementById("cam-overview-btn");
-        if (btn) btn.classList.add("active");
+        activateCamBtn("cam-overview-btn");
         camera.position.set(0, 48, 64);
         controls.target.set(0, 2, 0);
       }
@@ -2211,6 +2368,10 @@
       if (surfMesh) {
         surfMesh.position.z = -37.5 + Math.sin(tick * 0.04) * 0.8;
         surfMesh.material.opacity = 0.55 + Math.sin(tick * 0.04) * 0.22;
+      }
+      if (surfMesh2) {
+        surfMesh2.position.z = -43.5 + Math.cos(tick * 0.035) * 1.1;
+        surfMesh2.material.opacity = 0.35 + Math.cos(tick * 0.035) * 0.18;
       }
 
       // Animate Expanding Lake Water Ripples
