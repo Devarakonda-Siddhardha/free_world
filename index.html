@@ -2539,6 +2539,7 @@
     let ekoGenerator;
     let ekoDecisionRequest = null;
     let nextEkoDecisionAt = 0;
+    let nextEkoFallbackAt = 0;
     const explorationSites = new Map([
       ["visit_beach", [0, 0.05, -34]],
       ["visit_pier", [6, 0.35, -10]],
@@ -2549,6 +2550,33 @@
     const visitedSites = new Set();
     const exploredThisRound = new Set();
     let previousEkoAction;
+
+    function keepEkoActive() {
+      const goalLabel = document.getElementById("goal-pill-text");
+      if (agentState.hunger < 55 && berryBushes.some(bush => bush.berries > 0)) {
+        triggerForageAndEat();
+        goalLabel.innerText = "Foraging while waiting for Liquid AI";
+        return;
+      }
+      if (agentState.energy < 35) {
+        triggerRestByFire();
+        goalLabel.innerText = "Resting while waiting for Liquid AI";
+        return;
+      }
+      const [action, target] = [...explorationSites].find(([name, point]) =>
+        name !== "visit_pier" &&
+        !exploredThisRound.has(name) &&
+        Math.hypot(point[0] - agentState.pos[0], point[2] - agentState.pos[2]) > 0.25
+      ) ?? [];
+      if (!target) {
+        exploredThisRound.clear();
+        return;
+      }
+      previousEkoAction = { action, before: ekoMeters(), target };
+      agentState.targetPos = [...target];
+      goalLabel.innerText = "Exploring while waiting for Liquid AI";
+      addTranscriptEntry("Automatic exploration", action);
+    }
 
     function releaseEkoProp(prop, speed) {
       const yaw = agentGroup.rotation.y;
@@ -2666,6 +2694,7 @@
     async function requestEkoDecision() {
       const controller = new AbortController();
       ekoDecisionRequest = controller;
+      nextEkoFallbackAt = Date.now() + 15000;
       const goalLabel = document.getElementById("goal-pill-text");
       goalLabel.innerText = ekoGenerator ? "Liquid AI is deciding" : "Loading Liquid AI model";
       try {
@@ -2717,13 +2746,13 @@
         };
         goalLabel.innerText = "Liquid AI is deciding";
         const messages = [
-          { role: "system", content: 'You are Eko in Terra Haven. Be curious. Choose one action from allowedActions. Return JSON with action and a short first-person reason. You may include a brief lesson supported by your observations or past lives.' },
+          { role: "system", content: 'You are Eko in Terra Haven. Choose one action from allowedActions. Forage when hunger is low and rest when stamina is low. Otherwise investigate a new place or test a nearby object. After failure, try something different. Base your choice on observed facts. Return JSON with action and a first-person reason of at most 12 words.' },
           { role: "user", content: JSON.stringify(observation) }
         ];
         const text = localModelEnabled
           ? await generateLocalEkoDecision(messages, observation.allowedActions, controller.signal)
           : (await ekoGenerator(messages, {
-              max_new_tokens: 96,
+              max_new_tokens: 64,
               do_sample: false,
               tokenizer_encode_kwargs: { enable_thinking: false }
             }))[0].generated_text.at(-1).content;
@@ -2734,6 +2763,11 @@
         if (!actions.has(action) || typeof reason !== "string" || !reason.trim() || reason.length > 200) {
           throw new Error("Invalid decision");
         }
+        if (agentState.actionState !== "walk" ||
+            Math.hypot(agentState.targetPos[0] - agentState.pos[0], agentState.targetPos[2] - agentState.pos[2]) > 0.25) {
+          return;
+        }
+        rememberEkoAction("completed");
         if ((experiments.length || foodObservations.length || pastLives.length) && typeof lesson === "string" &&
             lesson.trim() && lesson.length <= 140 && !episodicEntries.some(entry => entry.lesson === lesson.trim())) {
           recordEpisodicMemory("Eko's lesson", lesson.trim(), { lesson: lesson.trim() });
@@ -3129,6 +3163,13 @@
           tick >= (previousEkoAction?.observeUntil ?? 0) &&
           !ekoDecisionRequest && Date.now() >= nextEkoDecisionAt) {
         requestEkoDecision();
+      }
+      if (modelEnabled && !isBusy && distToGoal <= 0.25 &&
+          tick >= (previousEkoAction?.observeUntil ?? 0) &&
+          Date.now() >= nextEkoFallbackAt && (ekoDecisionRequest || nextEkoDecisionAt === Infinity)) {
+        rememberEkoAction("completed");
+        nextEkoFallbackAt = Date.now() + 15000;
+        keepEkoActive();
       }
 
       if (modelEnabled && !isBusy && agentState.actionState === "walk") {
