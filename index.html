@@ -147,10 +147,12 @@
 
     const camera = new THREE.PerspectiveCamera(52, container.clientWidth / container.clientHeight, 0.1, 1000);
 
-    const browserModelEnabled = new URLSearchParams(location.search).get("eko") === "llm";
-    const renderer = new THREE.WebGLRenderer({ antialias: !browserModelEnabled });
+    const ekoMode = new URLSearchParams(location.search).get("eko");
+    const localModelEnabled = ekoMode === "local" && ["localhost", "127.0.0.1"].includes(location.hostname);
+    const modelEnabled = ekoMode === "llm" || localModelEnabled;
+    const renderer = new THREE.WebGLRenderer({ antialias: !modelEnabled });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, browserModelEnabled ? 1 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, modelEnabled ? 1 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1374,6 +1376,155 @@
     agentGroup.position.set(0, 0.25, 1.5);
     scene.add(agentGroup);
 
+    function dressTerraHaven() {
+      let seed = 9173;
+      const random = () => {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        return seed / 4294967296;
+      };
+      const landscape = new THREE.Group();
+      landscape.name = "Lakeshore and foothill details";
+      scene.add(landscape);
+
+      // Layer broad grass tones and small flecks over the existing terrain.
+      const tile = document.createElement("canvas");
+      tile.width = tile.height = 256;
+      const paint = tile.getContext("2d");
+      paint.fillStyle = "#a6b98b";
+      paint.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 2400; i++) {
+        const shade = 100 + Math.floor(random() * 140);
+        paint.fillStyle = `rgba(${shade},${shade + 12},${shade - 25},0.18)`;
+        const size = 2 + random() * 16;
+        paint.fillRect(random() * 256, random() * 256, size, size * 0.65);
+      }
+      const meadowTexture = new THREE.CanvasTexture(tile);
+      meadowTexture.wrapS = meadowTexture.wrapT = THREE.RepeatWrapping;
+      meadowTexture.repeat.set(0.19, 0.19);
+      meadowTexture.encoding = THREE.sRGBEncoding;
+      meadowTexture.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+      groundMat.map = meadowTexture;
+      groundMat.color.setHex(0x789957);
+
+      const trail = new THREE.CatmullRomCurve3([
+        [ -3.8, 4.3 ], [ -6, 6 ], [ -8.5, 8.4 ], [ -9.5, 12 ],
+        [ -13.4, 15.5 ], [ -16, 19.5 ]
+      ].map(([x, z]) => new THREE.Vector3(x, 0, z)));
+      const trailVertices = [];
+      const trailIndices = [];
+      for (let i = 0; i <= 64; i++) {
+        const point = trail.getPointAt(i / 64);
+        const tangent = trail.getTangentAt(i / 64);
+        const width = (0.76 + 0.14 * Math.sin(i * 0.31)) * Math.min(1, (65 - i) / 7);
+        for (const side of [-1, 1]) {
+          const x = point.x + side * tangent.z * width;
+          const z = point.z - side * tangent.x * width;
+          trailVertices.push(x, getSurfaceElevation(x, z) + 0.023, z);
+        }
+        if (i > 0) {
+          const edge = 2 * i;
+          trailIndices.push(edge - 2, edge - 1, edge, edge, edge - 1, edge + 1);
+        }
+      }
+      const trailGeometry = new THREE.BufferGeometry();
+      trailGeometry.setAttribute("position", new THREE.Float32BufferAttribute(trailVertices, 3));
+      trailGeometry.setIndex(trailIndices);
+      trailGeometry.computeVertexNormals();
+      const trailMesh = new THREE.Mesh(trailGeometry, new THREE.MeshStandardMaterial({
+        color: 0xbca377, roughness: 1, side: THREE.DoubleSide
+      }));
+      trailMesh.receiveShadow = true;
+      landscape.add(trailMesh);
+
+      const bankVertices = [];
+      const bankColors = [];
+      const bankIndices = [];
+      const wetSand = new THREE.Color(0x847756);
+      const drySand = new THREE.Color(0xb5a47b);
+      for (let i = 0; i <= 96; i++) {
+        const angle = i / 96 * Math.PI * 2;
+        for (const edge of [0, 1]) {
+          const radius = edge ? 1.035 + 0.022 * Math.sin(angle * 7) + 0.009 * Math.cos(angle * 17) : 1.002;
+          const x = 14 + 17 * radius * Math.cos(angle);
+          const z = -10 + 12 * radius * Math.sin(angle);
+          bankVertices.push(x, getSurfaceElevation(x, z) + 0.019, z);
+          const tone = edge ? drySand : wetSand;
+          bankColors.push(tone.r, tone.g, tone.b);
+        }
+        if (i > 0) {
+          const edge = 2 * i;
+          bankIndices.push(edge - 2, edge, edge - 1, edge - 1, edge, edge + 1);
+        }
+      }
+      const bankGeometry = new THREE.BufferGeometry();
+      bankGeometry.setAttribute("position", new THREE.Float32BufferAttribute(bankVertices, 3));
+      bankGeometry.setAttribute("color", new THREE.Float32BufferAttribute(bankColors, 3));
+      bankGeometry.setIndex(bankIndices);
+      bankGeometry.computeVertexNormals();
+      const shore = new THREE.Mesh(bankGeometry, new THREE.MeshStandardMaterial({
+        vertexColors: true, roughness: 1, side: THREE.DoubleSide
+      }));
+      shore.receiveShadow = true;
+      landscape.add(shore);
+
+      // Batch small scenery into a few draws so the model and scene can run together.
+      const placement = new THREE.Object3D();
+      const stone = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.98 }), 110);
+      const reed = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 3),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }), 330);
+      const color = new THREE.Color();
+      for (let i = 0; i < 110; i++) {
+        const angle = i * 2.39996;
+        const offset = 1.018 + 0.022 * Math.sin(angle * 5) + random() * 0.042;
+        const x = 14 + 17 * offset * Math.cos(angle);
+        const z = -10 + 12 * offset * Math.sin(angle);
+        const y = getSurfaceElevation(x, z);
+        const size = 0.09 + random() * 0.32;
+        placement.position.set(x, y + size * 0.19, z);
+        placement.rotation.set(random() * 0.4, angle, random() * 0.4);
+        placement.scale.set(size * 1.4, size * 0.64, size);
+        placement.updateMatrix();
+        stone.setMatrixAt(i, placement.matrix);
+        stone.setColorAt(i, color.setHSL(0.09 + random() * 0.04, 0.14, 0.34 + random() * 0.25));
+
+        const point = trail.getPointAt(random());
+        for (let stem = 0; stem < 3; stem++) {
+          const alongShore = i < 66;
+          const side = i % 2 ? 1 : -1;
+          const gx = alongShore ? x + random() * 0.4 : point.x + side * (0.9 + random() * 1.1);
+          const gz = alongShore ? z + random() * 0.4 : point.z + random() * 0.6;
+          const height = alongShore ? 0.25 + random() * 0.52 : 0.14 + random() * 0.28;
+          placement.position.set(gx, getSurfaceElevation(gx, gz) + height * 0.47, gz);
+          placement.rotation.set((random() - 0.5) * 0.38, angle, (random() - 0.5) * 0.44);
+          placement.scale.set(0.024, height, 0.024);
+          placement.updateMatrix();
+          reed.setMatrixAt(i * 3 + stem, placement.matrix);
+          reed.setColorAt(i * 3 + stem, color.setHSL(0.16 + random() * 0.11, 0.37, 0.21 + random() * 0.23));
+        }
+      }
+      landscape.add(stone, reed);
+
+      const graphite = new THREE.MeshStandardMaterial({ color: 0x283949, roughness: 0.62, metalness: 0.35 });
+      const jointCuff = new THREE.TorusGeometry(0.087, 0.018, 7, 14);
+      for (const joint of [leftLeg.kneeGroup, rightLeg.kneeGroup, leftArm.elbowGroup, rightArm.elbowGroup]) {
+        const collar = new THREE.Mesh(jointCuff, graphite);
+        collar.rotation.y = Math.PI / 2;
+        joint.add(collar);
+      }
+      const spine = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.38, 0.14), graphite);
+      spine.position.set(0, 0.37, -0.28);
+      torsoGroup.add(spine);
+      for (const side of [-1, 1]) {
+        const plate = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.28, 0.06), cyanArmorMat);
+        plate.position.set(side * 0.18, 0.33, -0.33);
+        plate.rotation.z = side * 0.15;
+        torsoGroup.add(plate);
+      }
+    }
+
+    dressTerraHaven();
+
     // --- PROPS & SIMULATION ENTITIES ---
     const entities = [];
     const entityMeshes = new Map();
@@ -1611,7 +1762,7 @@
             currentThoughtText: currentThoughtText
           },
           berryCounts: berryBushes.map(b => b.berries),
-          entities: entities.map(e => ({
+          entities: entities.filter(e => !e.shattered).map(e => ({
             id: e.id,
             name: e.name,
             shape: e.shape,
@@ -1647,6 +1798,10 @@
 
         // Restore Agent State
         Object.assign(agentState, saved.agentState);
+        if (["rest", "forage"].includes(agentState.actionState)) {
+          agentState.actionState = "walk";
+          agentState.targetPos = [...agentState.pos];
+        }
         agentGroup.position.set(...agentState.pos);
 
         // Update Survival & Health HUD
@@ -1773,6 +1928,38 @@
     }
 
     // --- BIOLOGICAL SURVIVAL & EXPEDITION ACTIONS ---
+    function eatBerry(bush) {
+      if (bush.berries <= 0) return false;
+      bush.berryMeshes[--bush.berries].visible = false;
+      bush.regrowTimer = 0;
+      return true;
+    }
+
+    function nearestRipeBush(position, radius) {
+      let nearest;
+      for (const bush of berryBushes) {
+        const distance = Math.hypot(bush.pos[0] - position[0], bush.pos[2] - position[2]);
+        if (bush.berries > 0 && distance < radius) {
+          nearest = bush;
+          radius = distance;
+        }
+      }
+      return nearest;
+    }
+
+    function grazeOnBerries(animal, species) {
+      const bush = nearestRipeBush(animal.pos, 1.65);
+      if (!bush || tick < (animal.nextBerryBite ?? 0)) return;
+      animal.nextBerryBite = tick + 40;
+      animal.meshObj.root.rotation.y = Math.atan2(bush.pos[0] - animal.pos[0], bush.pos[2] - animal.pos[2]);
+      eatBerry(bush);
+      if (modelEnabled && bush.berries <= 1 &&
+          Math.hypot(bush.pos[0] - agentState.pos[0], bush.pos[2] - agentState.pos[2]) < 14) {
+        const observation = { bush: bush.id, berriesLeft: bush.berries, animal: species };
+        recordEpisodicMemory("Watched wildlife eat berries", `A ${species} ate a berry at ${bush.id}. ${bush.berries} left.`, { foodObservation: observation });
+      }
+    }
+
     function triggerForageAndEat() {
       let targetBush = null;
       let minD = 999;
@@ -1813,11 +2000,14 @@
       addTranscriptEntry("Eko Foraging", `Plucking sweet berries from ${bush.id}...`);
 
       setTimeout(() => {
-        if (bush.berries > 0) {
-          bush.berries--;
-          if (bush.berryMeshes[bush.berries]) {
-            bush.berryMeshes[bush.berries].visible = false;
-          }
+        if (!eatBerry(bush)) {
+          agentState.actionState = "walk";
+          setAgentThought("This bush is empty. I'll have to look elsewhere.");
+          recordEpisodicMemory("Found an empty bush", `No berries left at ${bush.id}.`, {
+            foodObservation: { bush: bush.id, berriesLeft: 0 }
+          });
+          if (previousEkoAction?.action === "taste_berries") rememberEkoAction("bush was empty");
+          return;
         }
 
         agentState.hunger = Math.min(100, agentState.hunger + 35);
@@ -1831,6 +2021,7 @@
         setAgentThought(`Delicious sweet mountain berries! Restored hunger to ${Math.round(agentState.hunger)}% and stamina to ${Math.round(agentState.energy)}%.`);
         addTranscriptEntry("Biological Survival", `🫐 Ate wild berries. Hunger: ${Math.round(agentState.hunger)}% (+35%), Stamina: ${Math.round(agentState.energy)}% (+15%).`);
         recordEpisodicMemory("Foraged and Ate Berries", `Plucked sweet berries from ${bush.id}; replenished hunger to ${Math.round(agentState.hunger)}% and stamina to ${Math.round(agentState.energy)}%.`);
+        if (previousEkoAction?.action === "taste_berries") rememberEkoAction("completed");
 
         setTimeout(() => {
           agentState.actionState = 'walk';
@@ -1874,6 +2065,7 @@
           setAgentThought("Fully energized and refreshed by the hearth! Ready for new expeditions.");
           addTranscriptEntry("Campfire Warmth", "⚡ Stamina fully restored to 100%. Eko stands up refreshed.");
           recordEpisodicMemory("Rested by Campfire Hearth", "Sat beside campfire flames; radiant warmth restored stamina to 100%.");
+          if (previousEkoAction?.action === "test_hearth") rememberEkoAction("completed");
           saveWorldState();
         }
       }, 300);
@@ -1888,6 +2080,8 @@
 
     function executeDeathAndReset(cause) {
       ekoDecisionRequest?.abort();
+      rememberEkoAction(`interrupted by death: ${cause}`);
+      const lifeOutcome = { event: "death", cause, meters: ekoMeters(), position: agentState.pos.map(Math.round) };
       agentState.deathCount++;
       addTranscriptEntry("Emergency Failsafe", `🚨 CRITICAL CHASSIS FAILURE: ${cause}. Health dropped to 0%. Engaging automatic Haven reset.`);
       setAgentThought(`🚨 SYSTEM FAILURE: Critical damage sustained from ${cause}! Initiating emergency failsafe reset...`);
@@ -1946,7 +2140,7 @@
       const discoveryNote = cause.includes("Fire")
         ? "Stepped into active campfire flames; sustained lethal thermal damage. Discovered chassis cannot withstand direct fire pit heat."
         : "Submerged into deep water basin; sustained rapid drowning damage. Discovered chassis density exceeds water buoyancy and cannot swim.";
-      recordEpisodicMemory("Discovered Lethal Hazard & Reset", `Failsafe reset triggered after critical HP depletion from ${cause}. ${discoveryNote} Chassis rebooted at campfire dais.`);
+      recordEpisodicMemory("Death and respawn", `Eko died from ${cause}. ${discoveryNote} Eko respawned at the hearth.`, { lifeOutcome });
 
       setTimeout(() => {
         setAgentThought("Reboot complete. Back on the safe cobblestone hearth dais. Alive, full health, and alert.");
@@ -2293,6 +2487,11 @@
     // 6. Reset Haven Action
     function resetWorld() {
       ekoDecisionRequest?.abort();
+      rememberEkoAction("interrupted by world reset");
+      if (modelEnabled) recordEpisodicMemory("World reset", "The world was reset.", {
+        lifeOutcome: { event: "manual reset", meters: ekoMeters(), position: agentState.pos.map(Math.round) }
+      });
+      exploredThisRound.clear();
       try {
         localStorage.removeItem("terra_haven_world_save");
       } catch (e) {}
@@ -2331,7 +2530,7 @@
     // ==============================================================
     // --- 20HZ SIMULATION TICKER & TERRAIN-AWARE KINEMATICS ---
     // ==============================================================
-    if (browserModelEnabled) {
+    if (modelEnabled) {
       const modeLink = document.getElementById("eko-mode-link");
       modeLink.href = location.pathname;
       modeLink.textContent = "Switch to scripted Eko";
@@ -2340,6 +2539,56 @@
     let ekoGenerator;
     let ekoDecisionRequest = null;
     let nextEkoDecisionAt = 0;
+    const explorationSites = new Map([
+      ["visit_beach", [0, 0.05, -34]],
+      ["visit_pier", [6, 0.35, -10]],
+      ["inspect_geode", [-4.5, 0, -2.5]],
+      ["survey_peak_base", [-16, 0, 19.5]],
+      ["inspect_cedar_crates", [-2.5, 0, 4]]
+    ]);
+    const visitedSites = new Set();
+    const exploredThisRound = new Set();
+    let previousEkoAction;
+
+    function releaseEkoProp(prop, speed) {
+      const yaw = agentGroup.rotation.y;
+      const dx = Math.sin(yaw);
+      const dz = Math.cos(yaw);
+      agentState.holdingId = null;
+      agentState.actionState = "walk";
+      document.getElementById("holding-text").innerText = "None";
+      prop.pos = [agentState.pos[0] + dx * 0.8, agentState.pos[1] + 1.1, agentState.pos[2] + dz * 0.8];
+      prop.vel = [dx * speed, 0, dz * speed];
+      previousEkoAction.prop = prop;
+      previousEkoAction.speed = speed;
+      previousEkoAction.observeUntil = tick + 24;
+    }
+
+    function ekoMeters() {
+      return {
+        food: Math.round(agentState.hunger),
+        energy: Math.round(agentState.energy),
+        health: Math.round(agentState.health)
+      };
+    }
+
+    function rememberEkoAction(status) {
+      if (!previousEkoAction) return;
+      const { action, before, target, prop, speed } = previousEkoAction;
+      previousEkoAction = null;
+      if (target) {
+        if (Math.hypot(target[0] - agentState.pos[0], target[2] - agentState.pos[2]) <= 0.25) {
+          visitedSites.add(action);
+          exploredThisRound.add(action);
+          recordEpisodicMemory("Eko visited a landmark", action, { landmark: action });
+        }
+        return;
+      }
+      const experiment = prop
+        ? { action, status, object: prop.id, speed, shattered: Boolean(prop.shattered), landedAt: prop.pos.map(Math.round) }
+        : { action, status, before, after: ekoMeters() };
+      recordEpisodicMemory(`Eko experiment: ${action}`, JSON.stringify(experiment), { experiment });
+    }
 
     async function loadEkoModel(goalLabel) {
       if (!navigator.gpu) throw new Error("WebGPU is unavailable on this device.");
@@ -2380,42 +2629,117 @@
       });
     }
 
+    async function generateLocalEkoDecision(messages, allowedActions, signal) {
+      const response = await fetch("/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal,
+        body: JSON.stringify({
+          messages,
+          max_tokens: 96,
+          temperature: 0,
+          chat_template_kwargs: { enable_thinking: false },
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "eko_decision",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  action: { enum: allowedActions },
+                  reason: { type: "string", maxLength: 120 },
+                  lesson: { type: "string", maxLength: 120 }
+                },
+                required: ["action", "reason"],
+                additionalProperties: false
+              }
+            }
+          }
+        })
+      });
+      if (!response.ok) throw new Error(`Local model returned HTTP ${response.status}.`);
+      const result = await response.json();
+      return result.choices[0].message.content;
+    }
+
     async function requestEkoDecision() {
       const controller = new AbortController();
       ekoDecisionRequest = controller;
       const goalLabel = document.getElementById("goal-pill-text");
       goalLabel.innerText = ekoGenerator ? "Liquid AI is deciding" : "Loading Liquid AI model";
       try {
-        ekoGenerator ??= await loadEkoModel(goalLabel);
+        if (!localModelEnabled) ekoGenerator ??= await loadEkoModel(goalLabel);
         if (!isPlaying || controller.signal.aborted) return;
 
-        const ripeBushes = berryBushes.filter(bush => bush.berries > 0).length;
-        const atBeach = agentState.pos[2] < -32;
-        const actions = new Map([["rest", triggerRestByFire]]);
-        if (ripeBushes > 0) actions.set("forage", triggerForageAndEat);
-        if (!atBeach) actions.set("explore", triggerExploreOcean);
+        rememberEkoAction("completed");
+        if (exploredThisRound.size === explorationSites.size) exploredThisRound.clear();
+        const actions = new Map();
+        for (const [name, target] of explorationSites) {
+          if (!exploredThisRound.has(name)) {
+            actions.set(name, () => { agentState.targetPos = [...target]; });
+          }
+        }
+        const props = entities.filter(prop => !prop.shattered && (prop.attrs?.Timber || prop.attrs?.Geode));
+        const held = props.find(prop => prop.id === agentState.holdingId);
+        if (held) {
+          actions.set("place_held", () => releaseEkoProp(held, 0));
+          actions.set("throw_gently", () => releaseEkoProp(held, 4));
+          actions.set("throw_firmly", () => releaseEkoProp(held, 13));
+        } else if (!agentState.holdingId) {
+          for (const prop of props) {
+            const distance = Math.hypot(prop.pos[0] - agentState.pos[0], prop.pos[2] - agentState.pos[2]);
+            if (distance > 12) continue;
+            if (distance <= 1.8) {
+              actions.set(`pick_up_${prop.id}`, () => executePickSequence(prop));
+            } else {
+              actions.set(`approach_${prop.id}`, () => { agentState.targetPos = [...prop.pos]; });
+            }
+          }
+        }
+        actions.set("test_hearth", triggerRestByFire);
+        if (berryBushes.some(bush => bush.berries > 0)) {
+          actions.set("taste_berries", triggerForageAndEat);
+        }
+        const experiments = episodicEntries.filter(entry => entry.experiment).slice(-2).map(entry => entry.experiment);
+        const foodObservations = episodicEntries.filter(entry => entry.foodObservation).slice(-2).map(entry => entry.foodObservation);
+        const pastLives = episodicEntries.filter(entry => entry.lifeOutcome).slice(-2).map(entry => entry.lifeOutcome);
         const observation = {
-          food: Math.round(agentState.hunger),
-          energy: Math.round(agentState.energy),
-          health: Math.round(agentState.health),
-          ripeBushes,
-          atBeach,
+          position: agentState.pos.map(Math.round),
+          visited: [...visitedSites],
+          holding: agentState.holdingId,
+          meters: ekoMeters(),
+          pastLives,
+          experiments,
+          foodObservations,
+          lessons: [...new Set(episodicEntries.filter(entry => entry.lesson).map(entry => entry.lesson))].slice(-2),
           allowedActions: [...actions.keys()]
         };
         goalLabel.innerText = "Liquid AI is deciding";
-        const output = await ekoGenerator([
-          { role: "system", content: 'You are Eko in Terra Haven. Low food means hungry. Forage eats berries, rest restores energy, explore visits the beach. Choose one allowed action. Reply with only JSON: {"action":"rest","reason":"I need energy."}' },
+        const messages = [
+          { role: "system", content: 'You are Eko in Terra Haven. Be curious. Choose one action from allowedActions. Return JSON with action and a short first-person reason. You may include a brief lesson supported by your observations or past lives.' },
           { role: "user", content: JSON.stringify(observation) }
-        ], {
-          max_new_tokens: 96,
-          do_sample: false,
-          tokenizer_encode_kwargs: { enable_thinking: false }
-        });
+        ];
+        const text = localModelEnabled
+          ? await generateLocalEkoDecision(messages, observation.allowedActions, controller.signal)
+          : (await ekoGenerator(messages, {
+              max_new_tokens: 96,
+              do_sample: false,
+              tokenizer_encode_kwargs: { enable_thinking: false }
+            }))[0].generated_text.at(-1).content;
         if (!isPlaying || controller.signal.aborted) return;
-        const text = output[0].generated_text.at(-1).content;
-        const { action, reason } = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        const decision = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+        const { action, lesson } = decision;
+        const reason = decision.reason ?? decision.brief_reason;
         if (!actions.has(action) || typeof reason !== "string" || !reason.trim() || reason.length > 200) {
           throw new Error("Invalid decision");
+        }
+        if ((experiments.length || foodObservations.length || pastLives.length) && typeof lesson === "string" &&
+            lesson.trim() && lesson.length <= 140 && !episodicEntries.some(entry => entry.lesson === lesson.trim())) {
+          recordEpisodicMemory("Eko's lesson", lesson.trim(), { lesson: lesson.trim() });
+        }
+        if (explorationSites.has(action) || ["test_hearth", "taste_berries", "place_held", "throw_gently", "throw_firmly"].includes(action)) {
+          previousEkoAction = { action, before: ekoMeters(), target: explorationSites.get(action) };
         }
         actions.get(action)();
         renderThoughtBubble(reason);
@@ -2424,7 +2748,7 @@
         document.getElementById("action-badge").innerText = action;
       } catch (error) {
         if (!controller.signal.aborted) {
-          goalLabel.innerText = ekoGenerator ? "Liquid AI decision failed. Retrying."
+          goalLabel.innerText = (localModelEnabled || ekoGenerator) ? "Liquid AI decision failed. Retrying."
             : error instanceof RangeError ? "Liquid AI ran out of browser memory."
             : navigator.gpu ? "Liquid AI could not load. Reload to retry."
             : "Liquid AI requires WebGPU.";
@@ -2432,7 +2756,7 @@
         }
       } finally {
         ekoDecisionRequest = null;
-        nextEkoDecisionAt = ekoGenerator ? Date.now() + 15000 : Infinity;
+        nextEkoDecisionAt = (localModelEnabled || ekoGenerator) ? Date.now() + 1000 : Infinity;
       }
     }
 
@@ -2566,12 +2890,13 @@
           deer.timer--;
           deer.meshObj.neckGroup.rotation.x = -0.55 + Math.sin(tick * 0.08) * 0.06;
           deer.meshObj.legs.forEach(l => l.rotation.x = 0);
+          grazeOnBerries(deer, "deer");
 
           if (deer.timer <= 0) {
             deer.state = 'wandering';
             const rx = deer.pos[0] + (Math.random() - 0.5) * 16.0;
             const rz = deer.pos[2] + (Math.random() - 0.5) * 16.0;
-            deer.targetPos = [
+            deer.targetPos = nearestRipeBush(deer.pos, 18)?.pos ?? [
               Math.min(130, Math.max(-130, rx)),
               0,
               Math.min(130, Math.max(-25, rz))
@@ -2628,10 +2953,11 @@
 
           rab.meshObj.earL.rotation.z = Math.sin(tick * 0.18) * 0.18;
           rab.meshObj.earR.rotation.z = -Math.cos(tick * 0.14) * 0.18;
+          grazeOnBerries(rab, "rabbit");
 
           if (rab.timer <= 0) {
             rab.state = 'hopping';
-            rab.targetPos = [
+            rab.targetPos = nearestRipeBush(rab.pos, 10)?.pos ?? [
               rab.pos[0] + (Math.random() - 0.5) * 5.0,
               0,
               rab.pos[2] + (Math.random() - 0.5) * 5.0
@@ -2645,6 +2971,9 @@
       // -----------------------------------------------------------
       // Hunger decay over time
       agentState.hunger = Math.max(0, agentState.hunger - 0.012);
+      if (agentState.hunger === 0) {
+        agentState.health = Math.max(0, agentState.health - 0.12);
+      }
 
       // Check Campfire Hearth Warmth radius (6.0m)
       const distHearth = Math.hypot(agentState.pos[0], agentState.pos[2]);
@@ -2723,11 +3052,6 @@
         agentState.isDrowning = false;
       }
 
-      // Natural HP regeneration when safe, warm, and well-fed
-      if (!agentState.isBurning && !agentState.isDrowning && agentState.hunger > 50 && agentState.energy > 50) {
-        agentState.health = Math.min(100, agentState.health + 0.04);
-      }
-
       // Update Survival & Health HUD
       const healthEl = document.getElementById("health-text");
       if (healthEl) {
@@ -2759,7 +3083,7 @@
 
       // Automated Death & Reset Condition when Health reaches 0
       if (agentState.health <= 0) {
-        executeDeathAndReset(agentState.isBurning ? "Thermal Fire Pit Incineration" : (agentState.isDrowning ? "Water Drowning" : "Total Vitality Depletion"));
+        executeDeathAndReset(agentState.isBurning ? "Thermal Fire Pit Incineration" : (agentState.isDrowning ? "Water Drowning" : "Starvation"));
         return; // skip remainder of tick to allow fresh reboot
       }
 
@@ -2801,12 +3125,19 @@
                      agentState.actionState === 'forage' ||
                      agentState.actionState === 'rest';
 
-      if (browserModelEnabled && !isBusy && distToGoal < 0.6 &&
+      if (modelEnabled && !isBusy && distToGoal <= 0.25 &&
+          tick >= (previousEkoAction?.observeUntil ?? 0) &&
           !ekoDecisionRequest && Date.now() >= nextEkoDecisionAt) {
         requestEkoDecision();
       }
 
-      if (!browserModelEnabled && !isBusy && (distToGoal < 0.6 || agentState.timer > 360)) {
+      if (modelEnabled && !isBusy && agentState.actionState === "walk") {
+        const movementLabel = distToGoal > 0.25 ? "Walking" : "Idle";
+        const movementBadge = document.getElementById("action-state-text");
+        if (movementBadge.textContent !== movementLabel) movementBadge.textContent = movementLabel;
+      }
+
+      if (!modelEnabled && !isBusy && (distToGoal < 0.6 || agentState.timer > 360)) {
         agentState.timer = 0;
         agentState.behaviorIndex = (agentState.behaviorIndex + 1) % behaviors.length;
         const b = behaviors[agentState.behaviorIndex];
@@ -2825,7 +3156,7 @@
       }
 
       // Check if arrived at target destination for queued action
-      if (!browserModelEnabled && agentState.pendingAction && !isBusy && distToGoal < 1.0) {
+      if (!modelEnabled && agentState.pendingAction && !isBusy && distToGoal < 1.0) {
         const actionToRun = agentState.pendingAction;
         agentState.pendingAction = null;
         if (actionToRun === "Walking to Wooden Pier") {
@@ -3118,7 +3449,7 @@
 
       // Physics integration for props (Terrain & Water Collision)
       entities.forEach(ent => {
-        if (ent.id === agentState.holdingId) return;
+        if (ent.shattered || ent.id === agentState.holdingId) return;
 
         const surfaceY = getSurfaceElevation(ent.pos[0], ent.pos[2]);
         const floorY = surfaceY + ent.size[1]/2;
@@ -3131,7 +3462,9 @@
         ent.pos[2] += ent.vel[2] * 0.05;
 
         // Ground/Hearth/Pier surface collision
-        if (ent.pos[1] < floorY) {
+        const hitGround = ent.pos[1] < floorY;
+        const impactSpeed = hitGround ? Math.hypot(...ent.vel) : 0;
+        if (hitGround) {
           ent.pos[1] = floorY;
           ent.vel[1] = -ent.vel[1] * 0.35;
           ent.vel[0] *= 0.85;
@@ -3154,15 +3487,14 @@
 
         // Kinetic Impact Shatter check (River Geode)
         if (ent.id === "RiverGeode" && !ent.shattered) {
-          const speed = Math.hypot(ent.vel[0], ent.vel[2]);
-          if (ent.pos[0] >= 9.2 || (speed > 5.0 && ent.pos[1] <= floorY + 0.15)) {
+          if (hitGround && impactSpeed > 9.5) {
             ent.shattered = true;
             spawnCrystalShards(ent.pos[0], ent.pos[1] + 0.4, ent.pos[2]);
             const m = entityMeshes.get(ent.id);
             if (m) scene.remove(m);
             setAgentThought("★ Kinetic Impact verified! River Geode fractured into 3 sparkling crystal shards!");
             addTranscriptEntry("Kinetic Impact", "★ IMPACT! River Geode fractured into 3 sparkling crystal shards!");
-            recordEpisodicMemory("Kinetic Impact Verified", "Hurled River Geode > 9.5 m/s against boulder; impact fractured into 3 sparkling crystal shards.");
+            recordEpisodicMemory("Kinetic Impact Verified", `River Geode struck the surface at ${impactSpeed.toFixed(1)} m/s and fractured into three shards.`);
             saveWorldState();
           }
         }
@@ -3191,11 +3523,16 @@
       episodicEntries = [...defaultEpisodicLogs];
     }
 
-    function recordEpisodicMemory(summary, detail) {
+    for (const entry of episodicEntries) {
+      if (explorationSites.has(entry.landmark)) visitedSites.add(entry.landmark);
+    }
+
+    function recordEpisodicMemory(summary, detail, observations = {}) {
       const entry = {
         timestamp: Math.floor(Date.now() / 1000),
         summary: summary,
-        detail: detail
+        detail: detail,
+        ...observations
       };
       episodicEntries.push(entry);
       if (episodicEntries.length > 250) episodicEntries.shift();
@@ -3276,6 +3613,7 @@
     });
 
     window.addEventListener("beforeunload", () => {
+      rememberEkoAction("interrupted by page reload or close");
       saveWorldState();
     });
   </script>

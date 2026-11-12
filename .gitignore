@@ -6,3 +6,4 @@ __pycache__/
 current_obs.json
 .DS_Store
 *.log
+.eko-local/
